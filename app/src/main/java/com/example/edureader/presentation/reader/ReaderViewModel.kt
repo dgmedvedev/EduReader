@@ -1,10 +1,13 @@
 package com.example.edureader.presentation.reader
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.edureader.domain.common.DomainResult
 import com.example.edureader.domain.model.BookId
 import com.example.edureader.domain.model.BookLocator
 import com.example.edureader.domain.model.ReadingProgress
+import com.example.edureader.domain.model.SpineItem
+import com.example.edureader.domain.model.TocEntry
 import com.example.edureader.domain.usecase.GetBookUseCase
 import com.example.edureader.domain.usecase.GetReadingProgressUseCase
 import com.example.edureader.domain.usecase.ImportEpubFromUriUseCase
@@ -40,6 +43,7 @@ class ReaderViewModel @Inject constructor(
         when (intent) {
             is ReaderIntent.PickedDocument -> importFromUri(intent.uriString)
             is ReaderIntent.OpenChapter -> openChapter(intent.spineIndex)
+            is ReaderIntent.OpenTocItem -> openTocItem(intent.spineIndex, intent.href)
             is ReaderIntent.ReportScroll -> persistCurrentLocator(
                 scrollY = intent.scrollY,
                 debounce = true
@@ -95,6 +99,10 @@ class ReaderViewModel @Inject constructor(
                     title = book.title,
                     currentChapterIndex = currentIndex,
                     chapters = book.spine,
+                    tocItems = buildTocItems(
+                        chapters = book.spine,
+                        tableOfContents = book.tableOfContents
+                    ),
                     currentChapterFileUrl = chapterUrl
                 )
             )
@@ -114,6 +122,24 @@ class ReaderViewModel @Inject constructor(
             ready.copy(
                 currentChapterIndex = index,
                 currentChapterFileUrl = url
+            )
+        )
+        persistCurrentLocator(scrollY = 0, debounce = false)
+    }
+
+    private fun openTocItem(spineIndex: Int, href: String) {
+        val ready = (_state.value as? ReaderState.Ready)?.data ?: return
+        if (spineIndex !in ready.chapters.indices) return
+        val basePath = currentExtractedBasePath ?: return
+        val chapterPath = normalizeHref(ready.chapters[spineIndex].href)
+        val fragment = href.substringAfter('#', "")
+        val fileUrl = File(basePath, chapterPath).toURI().toString()
+        val targetUrl = if (fragment.isBlank()) fileUrl else "$fileUrl#$fragment"
+
+        _state.value = ReaderState.Ready(
+            ready.copy(
+                currentChapterIndex = spineIndex,
+                currentChapterFileUrl = targetUrl
             )
         )
         persistCurrentLocator(scrollY = 0, debounce = false)
@@ -160,4 +186,37 @@ class ReaderViewModel @Inject constructor(
             )
         }
     }
+
+    private fun buildTocItems(
+        chapters: List<SpineItem>,
+        tableOfContents: List<TocEntry>
+    ): List<ReaderTocItem> =
+        flattenToc(tableOfContents)
+            .mapIndexedNotNull { index, entry ->
+                val normalizedEntryHref = normalizeHref(entry.href)
+                val spineIndex =
+                    chapters.indexOfFirst { normalizeHref(it.href) == normalizedEntryHref }
+                if (spineIndex < 0) return@mapIndexedNotNull null
+
+                val title = entry.title.trim()
+                ReaderTocItem(
+                    title = title.ifBlank { "Глава ${index + 1}" },
+                    href = entry.href,
+                    spineIndex = spineIndex
+                )
+            }
+            .ifEmpty {
+                chapters.mapIndexed { index, chapter ->
+                    ReaderTocItem(
+                        title = "Глава ${index + 1}",
+                        href = chapter.href,
+                        spineIndex = index
+                    )
+                }
+            }
+
+    private fun flattenToc(entries: List<TocEntry>): List<TocEntry> =
+        entries.flatMap { entry -> listOf(entry) + flattenToc(entry.children) }
+
+    private fun normalizeHref(href: String): String = href.substringBefore('#')
 }
