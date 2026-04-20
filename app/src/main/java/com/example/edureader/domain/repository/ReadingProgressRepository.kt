@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ReadingProgressRepository {
     suspend fun getProgress(bookId: BookId): DomainResult<ReadingProgress?>
+    suspend fun getLastOpenedBookId(): DomainResult<BookId?>
     fun observeProgress(bookId: BookId): Flow<ReadingProgress?>
     suspend fun saveProgress(progress: ReadingProgress): DomainResult<Unit>
 }

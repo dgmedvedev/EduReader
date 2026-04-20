@@ -9,6 +9,7 @@ import com.example.edureader.domain.model.ReadingProgress
 import com.example.edureader.domain.model.SpineItem
 import com.example.edureader.domain.model.TocEntry
 import com.example.edureader.domain.usecase.GetBookUseCase
+import com.example.edureader.domain.usecase.GetLastOpenedBookIdUseCase
 import com.example.edureader.domain.usecase.GetReadingProgressUseCase
 import com.example.edureader.domain.usecase.ImportEpubFromUriUseCase
 import com.example.edureader.domain.usecase.ResolveInitialLocatorUseCase
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 class ReaderViewModel @Inject constructor(
     private val importEpubFromUriUseCase: ImportEpubFromUriUseCase,
     private val getBookUseCase: GetBookUseCase,
+    private val getLastOpenedBookIdUseCase: GetLastOpenedBookIdUseCase,
     private val getReadingProgressUseCase: GetReadingProgressUseCase,
     private val saveReadingProgressUseCase: SaveReadingProgressUseCase,
     private val resolveInitialLocatorUseCase: ResolveInitialLocatorUseCase
@@ -38,6 +40,11 @@ class ReaderViewModel @Inject constructor(
     private var currentBookId: BookId? = null
     private var currentExtractedBasePath: String? = null
     private var pendingSaveJob: Job? = null
+    private var lastPendingLocator: BookLocator? = null
+
+    init {
+        restoreLastOpenedBook()
+    }
 
     fun onIntent(intent: ReaderIntent) {
         when (intent) {
@@ -46,11 +53,24 @@ class ReaderViewModel @Inject constructor(
             is ReaderIntent.OpenTocItem -> openTocItem(intent.spineIndex, intent.href)
             is ReaderIntent.ReportScroll -> persistCurrentLocator(
                 scrollY = intent.scrollY,
+                progressionInChapter = intent.progressionInChapter,
                 debounce = true
             )
+            ReaderIntent.AppBackgrounded -> flushPendingLocator()
+            ReaderIntent.RestoreScrollApplied -> clearPendingScrollRestore()
 
             ReaderIntent.NextChapter -> moveChapter(1)
             ReaderIntent.PreviousChapter -> moveChapter(-1)
+        }
+    }
+
+    private fun restoreLastOpenedBook() {
+        viewModelScope.launch {
+            val result = getLastOpenedBookIdUseCase()
+            val lastBookId = (result as? DomainResult.Success)?.data ?: return@launch
+            _state.value = ReaderState.Importing
+            currentBookId = lastBookId
+            openBook(lastBookId)
         }
     }
 
@@ -103,7 +123,8 @@ class ReaderViewModel @Inject constructor(
                         chapters = book.spine,
                         tableOfContents = book.tableOfContents
                     ),
-                    currentChapterFileUrl = chapterUrl
+                    currentChapterFileUrl = chapterUrl,
+                    pendingRestoreProgressionInChapter = initialLocator?.progressionInResource
                 )
             )
             if (initialLocator != null) {
@@ -121,10 +142,11 @@ class ReaderViewModel @Inject constructor(
         _state.value = ReaderState.Ready(
             ready.copy(
                 currentChapterIndex = index,
-                currentChapterFileUrl = url
+                currentChapterFileUrl = url,
+                pendingRestoreProgressionInChapter = 0.0
             )
         )
-        persistCurrentLocator(scrollY = 0, debounce = false)
+        persistCurrentLocator(scrollY = 0, progressionInChapter = 0.0, debounce = false)
     }
 
     private fun openTocItem(spineIndex: Int, href: String) {
@@ -139,10 +161,11 @@ class ReaderViewModel @Inject constructor(
         _state.value = ReaderState.Ready(
             ready.copy(
                 currentChapterIndex = spineIndex,
-                currentChapterFileUrl = targetUrl
+                currentChapterFileUrl = targetUrl,
+                pendingRestoreProgressionInChapter = 0.0
             )
         )
-        persistCurrentLocator(scrollY = 0, debounce = false)
+        persistCurrentLocator(scrollY = 0, progressionInChapter = 0.0, debounce = false)
     }
 
     private fun moveChapter(delta: Int) {
@@ -151,8 +174,13 @@ class ReaderViewModel @Inject constructor(
         openChapter(nextIndex)
     }
 
-    private fun persistCurrentLocator(scrollY: Int, debounce: Boolean) {
+    private fun persistCurrentLocator(
+        scrollY: Int,
+        progressionInChapter: Double,
+        debounce: Boolean
+    ) {
         if (scrollY < 0) return
+        if (progressionInChapter.isNaN()) return
         val ready = (_state.value as? ReaderState.Ready)?.data ?: return
         val chapter = ready.chapters.getOrNull(ready.currentChapterIndex) ?: return
         val progressInBook =
@@ -160,9 +188,10 @@ class ReaderViewModel @Inject constructor(
 
         val locator = BookLocator(
             href = chapter.href,
-            progressionInResource = 0.0,
+            progressionInResource = progressionInChapter.coerceIn(0.0, 1.0),
             progressInBook = progressInBook
         )
+        lastPendingLocator = locator
         if (!debounce) {
             persistLocator(locator)
             return
@@ -172,6 +201,12 @@ class ReaderViewModel @Inject constructor(
             delay(500)
             persistLocator(locator)
         }
+    }
+
+    private fun flushPendingLocator() {
+        val pendingLocator = lastPendingLocator ?: return
+        pendingSaveJob?.cancel()
+        persistLocator(pendingLocator)
     }
 
     private fun persistLocator(locator: BookLocator) {
@@ -185,6 +220,14 @@ class ReaderViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    private fun clearPendingScrollRestore() {
+        val ready = (_state.value as? ReaderState.Ready)?.data ?: return
+        if (ready.pendingRestoreProgressionInChapter == null) return
+        _state.value = ReaderState.Ready(
+            ready.copy(pendingRestoreProgressionInChapter = null)
+        )
     }
 
     private fun buildTocItems(

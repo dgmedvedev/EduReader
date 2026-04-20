@@ -16,6 +16,7 @@ interface ReadingProgressLocalDataSource {
     fun get(bookId: BookId): ReadingProgress?
     fun observe(bookId: BookId): Flow<ReadingProgress?>
     fun save(progress: ReadingProgress)
+    fun getLastOpenedBookId(): BookId?
 }
 
 @Singleton
@@ -49,7 +50,15 @@ class SharedPrefsReadingProgressLocalDataSource @Inject constructor(
             .put("updatedAtEpochMillis", progress.updatedAtEpochMillis)
             .toString()
 
-        preferences.edit { putString(key(progress.bookId), json) }
+        preferences.edit {
+            putString(key(progress.bookId), json)
+            putString(KEY_LAST_OPENED_BOOK_ID, progress.bookId.value)
+        }
+    }
+
+    override fun getLastOpenedBookId(): BookId? {
+        val rawBookId = preferences.getString(KEY_LAST_OPENED_BOOK_ID, null) ?: return null
+        return runCatching { BookId(rawBookId) }.getOrNull()
     }
 
     private fun parse(raw: String, bookId: BookId): ReadingProgress? {
@@ -70,4 +79,8 @@ class SharedPrefsReadingProgressLocalDataSource @Inject constructor(
     }
 
     private fun key(bookId: BookId): String = "reading_progress_${bookId.value}"
+
+    private companion object {
+        const val KEY_LAST_OPENED_BOOK_ID = "last_opened_book_id"
+    }
 }

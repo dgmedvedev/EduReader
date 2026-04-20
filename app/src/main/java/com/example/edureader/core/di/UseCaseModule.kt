@@ -3,6 +3,7 @@ package com.example.edureader.core.di
 import com.example.edureader.domain.repository.EpubRepository
 import com.example.edureader.domain.repository.ReadingProgressRepository
 import com.example.edureader.domain.usecase.GetBookUseCase
+import com.example.edureader.domain.usecase.GetLastOpenedBookIdUseCase
 import com.example.edureader.domain.usecase.GetReadingProgressUseCase
 import com.example.edureader.domain.usecase.ImportEpubFromUriUseCase
 import com.example.edureader.domain.usecase.ImportLocalEpubUseCase
@@ -44,6 +45,12 @@ object UseCaseModule {
     fun provideGetReadingProgressUseCase(
         repository: ReadingProgressRepository
     ): GetReadingProgressUseCase = GetReadingProgressUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideGetLastOpenedBookIdUseCase(
+        repository: ReadingProgressRepository
+    ): GetLastOpenedBookIdUseCase = GetLastOpenedBookIdUseCase(repository)
 
     @Provides
     @Singleton
