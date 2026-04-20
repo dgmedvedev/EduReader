@@ -28,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 
 @Composable
 fun ReaderRoute(
@@ -48,6 +51,9 @@ fun ReaderRoute(
         if (uri != null) {
             viewModel.onIntent(ReaderIntent.PickedDocument(uri.toString()))
         }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        viewModel.onIntent(ReaderIntent.AppBackgrounded)
     }
 
     ReaderScreen(
@@ -136,6 +142,8 @@ private fun ReaderContent(
     modifier: Modifier = Modifier
 ) {
     var showChapters by remember { mutableStateOf(false) }
+    val latestState by rememberUpdatedState(state)
+    val latestOnIntent by rememberUpdatedState(onIntent)
 
     Column(
         modifier = modifier
@@ -173,8 +181,13 @@ private fun ReaderContent(
                     addJavascriptInterface(
                         object {
                             @JavascriptInterface
-                            fun onScroll(y: Float) {
-                                onIntent(ReaderIntent.ReportScroll(y.toInt()))
+                            fun onScroll(y: Float, progressionInChapter: Float) {
+                                latestOnIntent(
+                                    ReaderIntent.ReportScroll(
+                                        scrollY = y.toInt(),
+                                        progressionInChapter = progressionInChapter.toDouble()
+                                    )
+                                )
                             }
                         },
                         "EduReaderBridge"
@@ -182,6 +195,16 @@ private fun ReaderContent(
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             view?.evaluateJavascript(JS_SCROLL_LISTENER, null)
+                            val restoreProgression = latestState.pendingRestoreProgressionInChapter
+                            if (restoreProgression != null) {
+                                applyRestoreWithRetries(
+                                    webView = view,
+                                    progressionInChapter = restoreProgression,
+                                    onRestoreFinished = {
+                                        latestOnIntent(ReaderIntent.RestoreScrollApplied)
+                                    }
+                                )
+                            }
                         }
                     }
                     loadUrl(state.currentChapterFileUrl)
@@ -260,10 +283,52 @@ private const val JS_SCROLL_LISTENER = """
       if (timeout !== null) clearTimeout(timeout);
       timeout = setTimeout(function() {
         var y = window.scrollY || document.documentElement.scrollTop || 0;
+        var doc = document.documentElement || {};
+        var body = document.body || {};
+        var fullHeight = Math.max(doc.scrollHeight || 0, body.scrollHeight || 0);
+        var viewportHeight = window.innerHeight || doc.clientHeight || 0;
+        var maxScrollable = Math.max(fullHeight - viewportHeight, 0);
+        var progression = maxScrollable > 0 ? (y / maxScrollable) : 0;
+        progression = Math.max(0, Math.min(1, progression));
         if (window.EduReaderBridge && window.EduReaderBridge.onScroll) {
-          window.EduReaderBridge.onScroll(y);
+          window.EduReaderBridge.onScroll(y, progression);
         }
       }, 250);
     }, { passive: true });
   })();
 """
+
+private fun buildRestoreScrollScript(progressionInChapter: Double): String {
+    val normalized = progressionInChapter.coerceIn(0.0, 1.0)
+    return """
+      (function() {
+        var targetProgress = $normalized;
+        var doc = document.documentElement || {};
+        var body = document.body || {};
+        var fullHeight = Math.max(doc.scrollHeight || 0, body.scrollHeight || 0);
+        var viewportHeight = window.innerHeight || doc.clientHeight || 0;
+        var maxScrollable = Math.max(fullHeight - viewportHeight, 0);
+        var targetY = Math.round(maxScrollable * targetProgress);
+        window.scrollTo(0, targetY);
+      })();
+    """.trimIndent()
+}
+
+private fun applyRestoreWithRetries(
+    webView: WebView?,
+    progressionInChapter: Double,
+    onRestoreFinished: () -> Unit
+) {
+    val delaysMs = listOf(0L, 250L, 800L)
+    delaysMs.forEachIndexed { index, delayMs ->
+        webView?.postDelayed(
+            {
+                webView.evaluateJavascript(buildRestoreScrollScript(progressionInChapter), null)
+                if (index == delaysMs.lastIndex) {
+                    onRestoreFinished()
+                }
+            },
+            delayMs
+        )
+    }
+}

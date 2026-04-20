@@ -7,5 +7,6 @@ data class ReaderReadyState(
     val currentChapterIndex: Int,
     val chapters: List<SpineItem>,
     val tocItems: List<ReaderTocItem>,
-    val currentChapterFileUrl: String
+    val currentChapterFileUrl: String,
+    val pendingRestoreProgressionInChapter: Double?
 )

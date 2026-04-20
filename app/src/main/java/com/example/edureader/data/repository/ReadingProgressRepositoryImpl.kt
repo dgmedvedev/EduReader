@@ -30,6 +30,21 @@ class ReadingProgressRepositoryImpl @Inject constructor(
             )
     }
 
+    override suspend fun getLastOpenedBookId(): DomainResult<BookId?> {
+        return runCatching { localDataSource.getLastOpenedBookId() }
+            .fold(
+                onSuccess = { DomainResult.Success(it) },
+                onFailure = {
+                    DomainResult.Failure(
+                        DomainError.Storage(
+                            message = "Failed to load last opened book id.",
+                            cause = it
+                        )
+                    )
+                }
+            )
+    }
+
     override fun observeProgress(bookId: BookId): Flow<ReadingProgress?> {
         return localDataSource.observe(bookId)
     }
