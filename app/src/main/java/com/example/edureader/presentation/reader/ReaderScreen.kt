@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -216,17 +217,32 @@ private fun ReaderContent(
         if (showChapters) {
             ModalBottomSheet(onDismissRequest = { showChapters = false }) {
                 LazyColumn(modifier = Modifier.padding(16.dp)) {
-                    itemsIndexed(state.chapters) { index, item ->
+                    itemsIndexed(state.tocItems) { _, item ->
                         Button(
                             onClick = {
                                 showChapters = false
-                                onIntent(ReaderIntent.OpenChapter(index))
+                                onIntent(
+                                    ReaderIntent.OpenTocItem(
+                                        spineIndex = item.spineIndex,
+                                        href = item.href
+                                    )
+                                )
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
                         ) {
-                            Text(item.href.substringAfterLast('/').ifBlank { "Глава ${index + 1}" })
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = item.title,
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Start
+                                )
+                                Text(
+                                    text = "${item.spineIndex + 1}",
+                                    textAlign = TextAlign.End
+                                )
+                            }
                         }
                     }
                 }

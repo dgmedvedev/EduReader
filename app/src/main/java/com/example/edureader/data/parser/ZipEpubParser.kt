@@ -64,7 +64,11 @@ class ZipEpubParser @Inject constructor(
                         )
                     }
 
-                    val toc = buildToc(packageData, opfBasePath)
+                    val toc = buildToc(
+                        packageData = packageData,
+                        opfBasePath = opfBasePath,
+                        zip = zip
+                    )
                     val cover = resolveCoverHref(packageData, opfBasePath)
 
                     DomainResult.Success(
@@ -154,19 +158,21 @@ class ZipEpubParser @Inject constructor(
         )
     }
 
-    private fun buildToc(packageData: PackageData, opfBasePath: String): List<TocEntry> {
+    private fun buildToc(
+        packageData: PackageData,
+        opfBasePath: String,
+        zip: ZipFile
+    ): List<TocEntry> {
         val navItems = packageData.manifest.values.filter { item ->
             item.properties?.split(" ")?.contains("nav") == true
         }
 
         if (navItems.isNotEmpty()) {
-            // Placeholder for richer TOC parsing: returning nav documents as top-level entries.
-            return navItems.map { item ->
-                TocEntry(
-                    id = item.id,
-                    title = item.id,
-                    href = resolveRelativePath(opfBasePath, item.href)
-                )
+            navItems.forEach { item ->
+                val navPath = resolveRelativePath(opfBasePath, item.href)
+                val navEntry = zip.getEntry(navPath) ?: return@forEach
+                val parsed = zip.getInputStream(navEntry).use { parseNavDocument(it, opfBasePath) }
+                if (parsed.isNotEmpty()) return parsed
             }
         }
 
@@ -178,6 +184,36 @@ class ZipEpubParser @Inject constructor(
                 href = resolveRelativePath(opfBasePath, manifestItem.href)
             )
         }
+    }
+
+    private fun parseNavDocument(input: InputStream, opfBasePath: String): List<TocEntry> {
+        val html = input.bufferedReader().use { it.readText() }
+        val linkRegex = Regex(
+            pattern = """<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>""",
+            options = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+        )
+        val tagRegex = Regex("""<[^>]+>""")
+        val whitespaceRegex = Regex("""\s+""")
+
+        return linkRegex.findAll(html)
+            .mapIndexedNotNull { index, match ->
+                val href = match.groupValues[1].trim()
+                val rawTitle = match.groupValues[2]
+                val title = rawTitle
+                    .replace(tagRegex, " ")
+                    .replace(whitespaceRegex, " ")
+                    .trim()
+                if (href.isBlank() || title.isBlank()) {
+                    null
+                } else {
+                    TocEntry(
+                        id = "nav-$index",
+                        title = title,
+                        href = resolveRelativePath(opfBasePath, href.substringBefore('#'))
+                    )
+                }
+            }
+            .toList()
     }
 
     private fun resolveCoverHref(packageData: PackageData, opfBasePath: String): String? {
