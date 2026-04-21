@@ -2,6 +2,8 @@ package com.example.edureader.presentation.reader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.edureader.R
+import com.example.edureader.core.extensions.toTextSpecOrNull
 import com.example.edureader.domain.common.DomainResult
 import com.example.edureader.domain.model.BookId
 import com.example.edureader.domain.model.BookLocator
@@ -17,6 +19,7 @@ import com.example.edureader.domain.usecase.SaveReadingProgressUseCase
 import com.example.edureader.presentation.reader.contract.ReaderIntent
 import com.example.edureader.presentation.reader.contract.ReaderReadyState
 import com.example.edureader.presentation.reader.contract.ReaderState
+import com.example.edureader.presentation.reader.contract.TextSpec
 import com.example.edureader.presentation.reader.model.ReaderTocItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
@@ -88,7 +91,9 @@ class ReaderViewModel @Inject constructor(
                     openBook(result.data)
                 }
 
-                is DomainResult.Failure -> _state.value = ReaderState.Failure(result.error.message)
+                is DomainResult.Failure -> {
+                    _state.value = ReaderState.Failure(TextSpec.Raw(result.error.message))
+                }
             }
         }
     }
@@ -97,7 +102,7 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             val bookResult = getBookUseCase(bookId)
             if (bookResult is DomainResult.Failure) {
-                _state.value = ReaderState.Failure(bookResult.error.message)
+                _state.value = ReaderState.Failure(TextSpec.Raw(bookResult.error.message))
                 return@launch
             }
             val book = (bookResult as DomainResult.Success).data
@@ -109,7 +114,9 @@ class ReaderViewModel @Inject constructor(
             }
             val initialLocator = resolveInitialLocatorUseCase(book, savedProgress)
             if (book.spine.isEmpty()) {
-                _state.value = ReaderState.Failure("В EPUB не найдено содержимое для чтения.")
+                _state.value = ReaderState.Failure(
+                    TextSpec.Res(R.string.reader_error_epub_empty_content)
+                )
                 return@launch
             }
             val currentIndex = book.spine.indexOfFirst { it.href == initialLocator?.href }
@@ -239,7 +246,7 @@ class ReaderViewModel @Inject constructor(
 
                 val title = entry.title.trim()
                 ReaderTocItem(
-                    title = title.ifBlank { "Глава ${index + 1}" },
+                    title = title.toTextSpecOrNull() ?: chapterFallbackTextSpec(index + 1),
                     href = entry.href,
                     spineIndex = spineIndex
                 )
@@ -247,7 +254,7 @@ class ReaderViewModel @Inject constructor(
             .ifEmpty {
                 chapters.mapIndexed { index, chapter ->
                     ReaderTocItem(
-                        title = "Глава ${index + 1}",
+                        title = chapterFallbackTextSpec(index + 1),
                         href = chapter.href,
                         spineIndex = index
                     )
@@ -256,6 +263,12 @@ class ReaderViewModel @Inject constructor(
 
     private fun flattenToc(entries: List<TocEntry>): List<TocEntry> =
         entries.flatMap { entry -> listOf(entry) + flattenToc(entry.children) }
+
+    private fun chapterFallbackTextSpec(chapterNumber: Int): TextSpec =
+        TextSpec.Res(
+            id = R.string.reader_toc_item_chapter,
+            args = listOf(chapterNumber)
+        )
 
     private fun normalizeHref(href: String): String = href.substringBefore('#')
 }
