@@ -3,6 +3,7 @@ package com.example.edureader.presentation.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.edureader.R
+import com.example.edureader.core.monitoring.AppLogger
 import com.example.edureader.core.extensions.toTextSpecOrNull
 import com.example.edureader.domain.common.DomainResult
 import com.example.edureader.domain.model.BookId
@@ -39,7 +40,8 @@ class ReaderViewModel @Inject constructor(
     private val getLastOpenedBookIdUseCase: GetLastOpenedBookIdUseCase,
     private val getReadingProgressUseCase: GetReadingProgressUseCase,
     private val saveReadingProgressUseCase: SaveReadingProgressUseCase,
-    private val resolveInitialLocatorUseCase: ResolveInitialLocatorUseCase
+    private val resolveInitialLocatorUseCase: ResolveInitialLocatorUseCase,
+    private val appLogger: AppLogger
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ReaderState>(ReaderState.Idle)
@@ -75,6 +77,9 @@ class ReaderViewModel @Inject constructor(
     private fun restoreLastOpenedBook() {
         viewModelScope.launch {
             val result = getLastOpenedBookIdUseCase()
+            if (result is DomainResult.Failure) {
+                appLogger.reportDomainError("ReaderViewModel.restoreLastOpenedBook", result.error)
+            }
             val lastBookId = (result as? DomainResult.Success)?.data ?: return@launch
             _state.value = ReaderState.Importing
             currentBookId = lastBookId
@@ -93,6 +98,7 @@ class ReaderViewModel @Inject constructor(
                 }
 
                 is DomainResult.Failure -> {
+                    appLogger.reportDomainError("ReaderViewModel.importFromUri", result.error)
                     _state.value = ReaderState.Failure(result.error.toTextSpec())
                 }
             }
@@ -103,6 +109,7 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             val bookResult = getBookUseCase(bookId)
             if (bookResult is DomainResult.Failure) {
+                appLogger.reportDomainError("ReaderViewModel.openBook.getBook", bookResult.error)
                 _state.value = ReaderState.Failure(bookResult.error.toTextSpec())
                 return@launch
             }
@@ -111,7 +118,10 @@ class ReaderViewModel @Inject constructor(
             val progressResult = getReadingProgressUseCase(bookId)
             val savedProgress = when (progressResult) {
                 is DomainResult.Success -> progressResult.data
-                is DomainResult.Failure -> null
+                is DomainResult.Failure -> {
+                    appLogger.reportDomainError("ReaderViewModel.openBook.getReadingProgress", progressResult.error)
+                    null
+                }
             }
             val initialLocator = resolveInitialLocatorUseCase(book, savedProgress)
             if (book.spine.isEmpty()) {
@@ -216,13 +226,16 @@ class ReaderViewModel @Inject constructor(
     private fun persistLocator(locator: BookLocator) {
         val bookId = currentBookId ?: return
         viewModelScope.launch {
-            saveReadingProgressUseCase(
+            val saveResult = saveReadingProgressUseCase(
                 ReadingProgress(
                     bookId = bookId,
                     locator = locator,
                     updatedAtEpochMillis = System.currentTimeMillis()
                 )
             )
+            if (saveResult is DomainResult.Failure) {
+                appLogger.reportDomainError("ReaderViewModel.persistLocator", saveResult.error)
+            }
         }
     }
 

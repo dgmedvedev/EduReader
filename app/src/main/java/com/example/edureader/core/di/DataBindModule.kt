@@ -1,5 +1,7 @@
 package com.example.edureader.core.di
 
+import com.example.edureader.core.monitoring.AppLogger
+import com.example.edureader.core.monitoring.TimberAppLogger
 import com.example.edureader.data.local.BookCatalogLocalDataSource
 import com.example.edureader.data.local.ReadingProgressLocalDataSource
 import com.example.edureader.data.local.SharedPrefsBookCatalogLocalDataSource
@@ -65,4 +67,10 @@ abstract class DataBindModule {
     abstract fun bindEpubImportSourceResolver(
         impl: AndroidEpubImportSourceResolver
     ): EpubImportSourceResolver
+
+    @Binds
+    @Singleton
+    abstract fun bindAppLogger(
+        impl: TimberAppLogger
+    ): AppLogger
 }
