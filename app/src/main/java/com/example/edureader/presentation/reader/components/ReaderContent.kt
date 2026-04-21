@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.edureader.R
+import com.example.edureader.presentation.common.asString
 import com.example.edureader.presentation.reader.contract.ReaderIntent
 import com.example.edureader.presentation.reader.contract.ReaderReadyState
 import com.example.edureader.presentation.reader.webview.ReaderContentWebView
@@ -194,7 +195,7 @@ fun ReaderContent(
                                 ListItem(
                                     headlineContent = {
                                         Text(
-                                            text = item.title,
+                                            text = item.title.asString(),
                                             style = tocTextStyle,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis

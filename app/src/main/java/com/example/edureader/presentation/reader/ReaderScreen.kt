@@ -35,6 +35,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.example.edureader.R
+import com.example.edureader.presentation.common.asString
 import com.example.edureader.presentation.reader.contract.ReaderIntent
 import com.example.edureader.presentation.reader.contract.ReaderState
 import com.example.edureader.presentation.reader.components.ReaderContent
@@ -152,7 +153,7 @@ private fun ReaderScreen(
         is ReaderState.Failure -> {
             ReaderStatusPlaceholder(
                 title = stringResource(R.string.reader_failure_title),
-                subtitle = state.message,
+                subtitle = state.message.asString(),
                 actionLabel = stringResource(R.string.reader_action_pick_another),
                 onActionClick = onPickBook,
                 modifier = modifier
