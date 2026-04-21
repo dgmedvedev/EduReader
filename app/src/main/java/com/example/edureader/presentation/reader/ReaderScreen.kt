@@ -3,6 +3,7 @@ package com.example.edureader.presentation.reader
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.defaultMinSize
@@ -29,8 +30,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -128,7 +131,7 @@ private fun ReaderScreen(
             ReaderStatusPlaceholder(
                 title = stringResource(R.string.reader_idle_title),
                 subtitle = stringResource(R.string.reader_idle_subtitle),
-                actionLabel = stringResource(R.string.reader_action_open_epub),
+                actionLabel = stringResource(R.string.reader_drawer_pick_file),
                 onActionClick = onPickBook,
                 modifier = modifier
             ) {
@@ -138,7 +141,14 @@ private fun ReaderScreen(
                     modifier = Modifier
                         .size(dimensionResource(R.dimen.reader_placeholder_icon_size))
                         .clip(RoundedCornerShape(dimensionResource(R.dimen.reader_placeholder_shape_radius)))
-                ) {}
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = stringResource(R.string.app_name),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
 
