@@ -1,71 +1,115 @@
 package com.example.edureader.presentation.reader
 
-import android.annotation.SuppressLint
-import android.webkit.JavascriptInterface
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.example.edureader.R
+import com.example.edureader.presentation.reader.contract.ReaderIntent
+import com.example.edureader.presentation.reader.contract.ReaderState
+import com.example.edureader.presentation.reader.components.ReaderContent
 
 @Composable
 fun ReaderRoute(
     modifier: Modifier = Modifier,
+    onCloseApp: () -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    var showExitDialog by remember { mutableStateOf(false) }
     val pickEpubLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            viewModel.onIntent(ReaderIntent.PickedDocument(uri.toString()))
+            viewModel.onIntent(intent = ReaderIntent.PickedDocument(uriString = uri.toString()))
         }
     }
-    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
-        viewModel.onIntent(ReaderIntent.AppBackgrounded)
+    val epubMimeType = stringResource(R.string.reader_document_mime_epub)
+
+    LifecycleEventEffect(event = Lifecycle.Event.ON_PAUSE) {
+        viewModel.onIntent(intent = ReaderIntent.AppBackgrounded)
+    }
+
+    BackHandler {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            dismissButton = {
+                Column(horizontalAlignment = Alignment.Start) {
+                    TextButton(
+                        onClick = {
+                            showExitDialog = false
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.reader_exit_dialog_continue),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            showExitDialog = false
+                            pickEpubLauncher.launch(input = arrayOf(epubMimeType))
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.reader_exit_dialog_pick_another),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            showExitDialog = false
+                            onCloseApp()
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.reader_exit_dialog_close_app),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            },
+            confirmButton = {}
+        )
     }
 
     ReaderScreen(
         state = state,
-        onPickBook = {
-            pickEpubLauncher.launch(
-                arrayOf(
-                    "application/epub+zip",
-                    "application/zip"
-                )
-            )
-        },
+        onPickBook = { pickEpubLauncher.launch(input = arrayOf(epubMimeType)) },
         onIntent = viewModel::onIntent,
         modifier = modifier
     )
@@ -74,51 +118,45 @@ fun ReaderRoute(
 @Composable
 private fun ReaderScreen(
     state: ReaderState,
+    modifier: Modifier = Modifier,
     onPickBook: () -> Unit,
-    onIntent: (ReaderIntent) -> Unit,
-    modifier: Modifier = Modifier
+    onIntent: (ReaderIntent) -> Unit
 ) {
     when (state) {
         ReaderState.Idle -> {
-            Column(
+            ReaderStatusPlaceholder(
+                title = stringResource(R.string.reader_idle_title),
+                subtitle = stringResource(R.string.reader_idle_subtitle),
+                actionLabel = stringResource(R.string.reader_action_open_epub),
+                onActionClick = onPickBook,
                 modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Выберите EPUB файл")
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(onClick = onPickBook) { Text("Открыть EPUB") }
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(dimensionResource(R.dimen.reader_placeholder_shape_radius)),
+                    modifier = Modifier
+                        .size(dimensionResource(R.dimen.reader_placeholder_icon_size))
+                        .clip(RoundedCornerShape(dimensionResource(R.dimen.reader_placeholder_shape_radius)))
+                ) {}
             }
         }
 
         ReaderState.Importing -> {
-            Column(
+            ReaderStatusPlaceholder(
+                title = stringResource(R.string.reader_importing_title),
+                subtitle = stringResource(R.string.reader_importing_subtitle),
                 modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Импорт и разбор EPUB...")
-            }
+            ) { CircularProgressIndicator() }
         }
 
         is ReaderState.Failure -> {
-            Column(
+            ReaderStatusPlaceholder(
+                title = stringResource(R.string.reader_failure_title),
+                subtitle = state.message,
+                actionLabel = stringResource(R.string.reader_action_pick_another),
+                onActionClick = onPickBook,
                 modifier = modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Ошибка: ${state.message}")
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(onClick = onPickBook) { Text("Выбрать другой EPUB") }
-            }
+            ) {}
         }
 
         is ReaderState.Ready -> {
@@ -132,203 +170,52 @@ private fun ReaderScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun ReaderContent(
-    state: ReaderReadyState,
-    onPickBook: () -> Unit,
-    onIntent: (ReaderIntent) -> Unit,
-    modifier: Modifier = Modifier
+private fun ReaderStatusPlaceholder(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onActionClick: (() -> Unit)? = null,
+    leading: @Composable () -> Unit
 ) {
-    var showChapters by remember { mutableStateOf(false) }
-    val latestState by rememberUpdatedState(state)
-    val latestOnIntent by rememberUpdatedState(onIntent)
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = dimensionResource(R.dimen.reader_placeholder_horizontal_padding)),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(state.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-        Text(
-            text = "Глава ${state.currentChapterIndex + 1}/${state.chapters.size}",
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(onClick = { showChapters = true }) { Text("Оглавление") }
-            Spacer(modifier = Modifier.weight(1f))
-            Button(onClick = onPickBook) { Text("Другой файл") }
-        }
-
-        AndroidView(
+        ElevatedCard(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            factory = { context ->
-                WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.cacheMode = WebSettings.LOAD_DEFAULT
-                    settings.allowFileAccess = true
-                    settings.allowFileAccessFromFileURLs = true
-                    settings.allowUniversalAccessFromFileURLs = true
-                    addJavascriptInterface(
-                        object {
-                            @JavascriptInterface
-                            fun onScroll(y: Float, progressionInChapter: Float) {
-                                latestOnIntent(
-                                    ReaderIntent.ReportScroll(
-                                        scrollY = y.toInt(),
-                                        progressionInChapter = progressionInChapter.toDouble()
-                                    )
-                                )
-                            }
-                        },
-                        "EduReaderBridge"
-                    )
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            view?.evaluateJavascript(JS_SCROLL_LISTENER, null)
-                            val restoreProgression = latestState.pendingRestoreProgressionInChapter
-                            if (restoreProgression != null) {
-                                applyRestoreWithRetries(
-                                    webView = view,
-                                    progressionInChapter = restoreProgression,
-                                    onRestoreFinished = {
-                                        latestOnIntent(ReaderIntent.RestoreScrollApplied)
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    loadUrl(state.currentChapterFileUrl)
-                }
-            },
-            update = { view ->
-                if (view.url != state.currentChapterFileUrl) {
-                    view.loadUrl(state.currentChapterFileUrl)
-                }
-            }
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = dimensionResource(R.dimen.reader_placeholder_min_height))
         ) {
-            Button(
-                onClick = { onIntent(ReaderIntent.PreviousChapter) },
-                enabled = state.currentChapterIndex > 0,
-                modifier = Modifier.weight(1f)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(dimensionResource(R.dimen.reader_placeholder_content_padding)),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.reader_placeholder_content_spacing))
             ) {
-                Text("Назад")
-            }
-            Button(
-                onClick = { onIntent(ReaderIntent.NextChapter) },
-                enabled = state.currentChapterIndex < state.chapters.lastIndex,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Вперед")
-            }
-        }
-
-        if (showChapters) {
-            ModalBottomSheet(onDismissRequest = { showChapters = false }) {
-                LazyColumn(modifier = Modifier.padding(16.dp)) {
-                    itemsIndexed(state.tocItems) { _, item ->
-                        Button(
-                            onClick = {
-                                showChapters = false
-                                onIntent(
-                                    ReaderIntent.OpenTocItem(
-                                        spineIndex = item.spineIndex,
-                                        href = item.href
-                                    )
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    text = item.title,
-                                    modifier = Modifier.weight(1f),
-                                    textAlign = TextAlign.Start
-                                )
-                                Text(
-                                    text = "${item.spineIndex + 1}",
-                                    textAlign = TextAlign.End
-                                )
-                            }
-                        }
+                leading()
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                if (actionLabel != null && onActionClick != null) {
+                    FilledTonalButton(onClick = onActionClick) {
+                        Text(text = actionLabel)
                     }
                 }
             }
         }
-    }
-}
-
-private const val JS_SCROLL_LISTENER = """
-  (function() {
-    if (window.__edureader_scroll_listener) return;
-    window.__edureader_scroll_listener = true;
-    var timeout = null;
-    window.addEventListener('scroll', function() {
-      if (timeout !== null) clearTimeout(timeout);
-      timeout = setTimeout(function() {
-        var y = window.scrollY || document.documentElement.scrollTop || 0;
-        var doc = document.documentElement || {};
-        var body = document.body || {};
-        var fullHeight = Math.max(doc.scrollHeight || 0, body.scrollHeight || 0);
-        var viewportHeight = window.innerHeight || doc.clientHeight || 0;
-        var maxScrollable = Math.max(fullHeight - viewportHeight, 0);
-        var progression = maxScrollable > 0 ? (y / maxScrollable) : 0;
-        progression = Math.max(0, Math.min(1, progression));
-        if (window.EduReaderBridge && window.EduReaderBridge.onScroll) {
-          window.EduReaderBridge.onScroll(y, progression);
-        }
-      }, 250);
-    }, { passive: true });
-  })();
-"""
-
-private fun buildRestoreScrollScript(progressionInChapter: Double): String {
-    val normalized = progressionInChapter.coerceIn(0.0, 1.0)
-    return """
-      (function() {
-        var targetProgress = $normalized;
-        var doc = document.documentElement || {};
-        var body = document.body || {};
-        var fullHeight = Math.max(doc.scrollHeight || 0, body.scrollHeight || 0);
-        var viewportHeight = window.innerHeight || doc.clientHeight || 0;
-        var maxScrollable = Math.max(fullHeight - viewportHeight, 0);
-        var targetY = Math.round(maxScrollable * targetProgress);
-        window.scrollTo(0, targetY);
-      })();
-    """.trimIndent()
-}
-
-private fun applyRestoreWithRetries(
-    webView: WebView?,
-    progressionInChapter: Double,
-    onRestoreFinished: () -> Unit
-) {
-    val delaysMs = listOf(0L, 250L, 800L)
-    delaysMs.forEachIndexed { index, delayMs ->
-        webView?.postDelayed(
-            {
-                webView.evaluateJavascript(buildRestoreScrollScript(progressionInChapter), null)
-                if (index == delaysMs.lastIndex) {
-                    onRestoreFinished()
-                }
-            },
-            delayMs
-        )
     }
 }

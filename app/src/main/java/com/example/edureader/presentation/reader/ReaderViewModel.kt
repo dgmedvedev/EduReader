@@ -14,6 +14,10 @@ import com.example.edureader.domain.usecase.GetReadingProgressUseCase
 import com.example.edureader.domain.usecase.ImportEpubFromUriUseCase
 import com.example.edureader.domain.usecase.ResolveInitialLocatorUseCase
 import com.example.edureader.domain.usecase.SaveReadingProgressUseCase
+import com.example.edureader.presentation.reader.contract.ReaderIntent
+import com.example.edureader.presentation.reader.contract.ReaderReadyState
+import com.example.edureader.presentation.reader.contract.ReaderState
+import com.example.edureader.presentation.reader.model.ReaderTocItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
@@ -49,13 +53,13 @@ class ReaderViewModel @Inject constructor(
     fun onIntent(intent: ReaderIntent) {
         when (intent) {
             is ReaderIntent.PickedDocument -> importFromUri(intent.uriString)
-            is ReaderIntent.OpenChapter -> openChapter(intent.spineIndex)
             is ReaderIntent.OpenTocItem -> openTocItem(intent.spineIndex, intent.href)
             is ReaderIntent.ReportScroll -> persistCurrentLocator(
                 scrollY = intent.scrollY,
                 progressionInChapter = intent.progressionInChapter,
                 debounce = true
             )
+
             ReaderIntent.AppBackgrounded -> flushPendingLocator()
             ReaderIntent.RestoreScrollApplied -> clearPendingScrollRestore()
 
@@ -134,27 +138,19 @@ class ReaderViewModel @Inject constructor(
     }
 
     private fun openChapter(index: Int) {
-        val ready = (_state.value as? ReaderState.Ready)?.data ?: return
-        if (index !in ready.chapters.indices) return
-        val basePath = currentExtractedBasePath ?: return
-        val item = ready.chapters[index]
-        val url = File(basePath, item.href).toURI().toString()
-        _state.value = ReaderState.Ready(
-            ready.copy(
-                currentChapterIndex = index,
-                currentChapterFileUrl = url,
-                pendingRestoreProgressionInChapter = 0.0
-            )
-        )
-        persistCurrentLocator(scrollY = 0, progressionInChapter = 0.0, debounce = false)
+        navigateToChapter(spineIndex = index, targetHref = null)
     }
 
     private fun openTocItem(spineIndex: Int, href: String) {
+        navigateToChapter(spineIndex = spineIndex, targetHref = href)
+    }
+
+    private fun navigateToChapter(spineIndex: Int, targetHref: String?) {
         val ready = (_state.value as? ReaderState.Ready)?.data ?: return
         if (spineIndex !in ready.chapters.indices) return
         val basePath = currentExtractedBasePath ?: return
-        val chapterPath = normalizeHref(ready.chapters[spineIndex].href)
-        val fragment = href.substringAfter('#', "")
+        val chapterPath = normalizeHref(targetHref ?: ready.chapters[spineIndex].href)
+        val fragment = targetHref?.substringAfter('#', "").orEmpty()
         val fileUrl = File(basePath, chapterPath).toURI().toString()
         val targetUrl = if (fragment.isBlank()) fileUrl else "$fileUrl#$fragment"
 
