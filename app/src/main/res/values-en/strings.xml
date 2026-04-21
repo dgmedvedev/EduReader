@@ -6,6 +6,11 @@
     <string name="reader_importing_subtitle">Importing and parsing the EPUB may take a few seconds.</string>
     <string name="reader_failure_title">Could not open the book</string>
     <string name="reader_error_epub_empty_content">No readable content found in this EPUB.</string>
+    <string name="reader_error_validation">Check the selected file and try again.</string>
+    <string name="reader_error_not_found">File not found. Choose another EPUB.</string>
+    <string name="reader_error_storage">Unable to access the file. Please try again.</string>
+    <string name="reader_error_parsing">Failed to parse EPUB. The file may be corrupted.</string>
+    <string name="reader_error_generic">Something went wrong. Please try again.</string>
     <string name="reader_action_open_epub">Open EPUB</string>
     <string name="reader_action_pick_another">Choose another EPUB</string>
     <string name="reader_action_toc">Table of contents</string>

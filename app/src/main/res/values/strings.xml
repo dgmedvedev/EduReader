@@ -6,6 +6,11 @@
     <string name="reader_importing_subtitle">Импорт и разбор EPUB могут занять несколько секунд.</string>
     <string name="reader_failure_title">Не удалось открыть книгу</string>
     <string name="reader_error_epub_empty_content">В EPUB не найдено содержимое для чтения.</string>
+    <string name="reader_error_validation">Проверьте выбранный файл и попробуйте снова.</string>
+    <string name="reader_error_not_found">Файл не найден. Выберите другой EPUB.</string>
+    <string name="reader_error_storage">Не удалось получить доступ к файлу. Попробуйте снова.</string>
+    <string name="reader_error_parsing">Не удалось разобрать EPUB. Возможно, файл поврежден.</string>
+    <string name="reader_error_generic">Произошла ошибка. Попробуйте снова.</string>
     <string name="reader_action_open_epub">Открыть EPUB</string>
     <string name="reader_action_pick_another">Выбрать другой EPUB</string>
     <string name="reader_action_toc">Оглавление</string>

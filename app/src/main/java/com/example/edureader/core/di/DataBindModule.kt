@@ -4,7 +4,9 @@ import com.example.edureader.data.local.BookCatalogLocalDataSource
 import com.example.edureader.data.local.ReadingProgressLocalDataSource
 import com.example.edureader.data.local.SharedPrefsBookCatalogLocalDataSource
 import com.example.edureader.data.local.SharedPrefsReadingProgressLocalDataSource
+import com.example.edureader.data.parser.AndroidEpubStorage
 import com.example.edureader.data.parser.EpubParser
+import com.example.edureader.data.parser.EpubStorage
 import com.example.edureader.data.parser.ZipEpubParser
 import com.example.edureader.data.repository.EpubRepositoryImpl
 import com.example.edureader.data.repository.ReadingProgressRepositoryImpl
@@ -27,6 +29,12 @@ abstract class DataBindModule {
     abstract fun bindEpubParser(
         impl: ZipEpubParser
     ): EpubParser
+
+    @Binds
+    @Singleton
+    abstract fun bindEpubStorage(
+        impl: AndroidEpubStorage
+    ): EpubStorage
 
     @Binds
     @Singleton

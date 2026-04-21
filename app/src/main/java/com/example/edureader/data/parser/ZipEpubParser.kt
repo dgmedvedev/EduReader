@@ -1,6 +1,5 @@
 package com.example.edureader.data.parser
 
-import android.content.Context
 import com.example.edureader.domain.common.DomainError
 import com.example.edureader.domain.common.DomainResult
 import com.example.edureader.domain.model.BookId
@@ -9,18 +8,19 @@ import com.example.edureader.domain.model.SpineItem
 import com.example.edureader.domain.model.TocEntry
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.io.InputStream
-import java.security.MessageDigest
 import java.util.zip.ZipFile
-import javax.inject.Inject
-import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.zip.ZipException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import org.xmlpull.v1.XmlPullParserException
+import javax.inject.Inject
 
 class ZipEpubParser @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    private val epubStorage: EpubStorage
 ) : EpubParser {
     override suspend fun parse(filePath: String): DomainResult<EpubBook> =
         withContext(Dispatchers.IO) {
@@ -33,6 +33,18 @@ class ZipEpubParser @Inject constructor(
                 }
 
                 ZipFile(file).use { zip ->
+                    val mimeTypeEntry = zip.getEntry(MIMETYPE_FILE)
+                        ?: return@withContext parsingFailure(
+                            "Corrupted EPUB: missing required mimetype file."
+                        )
+                    val mimeType = zip.getInputStream(mimeTypeEntry).bufferedReader()
+                        .use { it.readText().trim() }
+                    if (mimeType != EPUB_MIME_TYPE) {
+                        return@withContext parsingFailure(
+                            "Corrupted EPUB: invalid MIME type in mimetype file."
+                        )
+                    }
+
                     val extractedBasePath = extractZipIfNeeded(file, zip)
 
                     val containerEntry = zip.getEntry(CONTAINER_XML)
@@ -52,6 +64,12 @@ class ZipEpubParser @Inject constructor(
 
                     val packageData = zip.getInputStream(opfEntry).use { parsePackageDocument(it) }
                     val opfBasePath = opfPath.substringBeforeLast('/', "")
+                    if (packageData.manifest.isEmpty()) {
+                        return@withContext parsingFailure("Corrupted EPUB: manifest is missing in OPF.")
+                    }
+                    if (packageData.spineItems.isEmpty()) {
+                        return@withContext parsingFailure("Corrupted EPUB: spine is missing in OPF.")
+                    }
 
                     val spine = packageData.spineItems.mapNotNull { itemRef ->
                         val manifestItem =
@@ -61,6 +79,11 @@ class ZipEpubParser @Inject constructor(
                             href = resolveRelativePath(opfBasePath, manifestItem.href),
                             mediaType = manifestItem.mediaType,
                             linear = itemRef.linear
+                        )
+                    }
+                    if (spine.isEmpty()) {
+                        return@withContext parsingFailure(
+                            "Corrupted EPUB: spine items do not match manifest entries."
                         )
                     }
 
@@ -85,6 +108,28 @@ class ZipEpubParser @Inject constructor(
                         )
                     )
                 }
+            } catch (error: ZipException) {
+                parsingFailure(
+                    message = "File is corrupted or not a valid EPUB archive.",
+                    cause = error
+                )
+            } catch (error: XmlPullParserException) {
+                parsingFailure(
+                    message = "Corrupted EPUB: invalid XML structure in container/OPF.",
+                    cause = error
+                )
+            } catch (error: IllegalArgumentException) {
+                parsingFailure(
+                    message = "Corrupted EPUB: unsafe or invalid archive paths.",
+                    cause = error
+                )
+            } catch (error: IOException) {
+                DomainResult.Failure(
+                    DomainError.Storage(
+                        message = "Unable to read EPUB file. Check file integrity and access.",
+                        cause = error
+                    )
+                )
             } catch (error: Exception) {
                 DomainResult.Failure(
                     DomainError.Parsing(
@@ -94,6 +139,12 @@ class ZipEpubParser @Inject constructor(
                 )
             }
         }
+
+    private fun parsingFailure(
+        message: String,
+        cause: Throwable? = null
+    ): DomainResult.Failure =
+        DomainResult.Failure(DomainError.Parsing(message = message, cause = cause))
 
     private fun parseContainerXml(input: InputStream): String? {
         val parser = createXmlParser(input)
@@ -244,7 +295,7 @@ class ZipEpubParser @Inject constructor(
     }
 
     private fun extractZipIfNeeded(file: File, zip: ZipFile): String {
-        val targetDir = File(context.filesDir, "epub_extracted/${hash(file.absolutePath)}")
+        val targetDir = epubStorage.getExtractionDir(file)
         val marker = File(targetDir, ".extracted")
         if (marker.exists()) return targetDir.absolutePath
 
@@ -276,11 +327,6 @@ class ZipEpubParser @Inject constructor(
         return targetDir.absolutePath
     }
 
-    private fun hash(value: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }.take(24)
-    }
-
     private data class PackageData(
         val title: String,
         val language: String?,
@@ -304,5 +350,7 @@ class ZipEpubParser @Inject constructor(
 
     private companion object {
         const val CONTAINER_XML = "META-INF/container.xml"
+        const val MIMETYPE_FILE = "mimetype"
+        const val EPUB_MIME_TYPE = "application/epub+zip"
     }
 }
