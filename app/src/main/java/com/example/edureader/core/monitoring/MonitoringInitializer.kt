@@ -1,6 +1,5 @@
 package com.example.edureader.core.monitoring
 
-import android.app.Application
 import com.example.edureader.BuildConfig
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import javax.inject.Inject
