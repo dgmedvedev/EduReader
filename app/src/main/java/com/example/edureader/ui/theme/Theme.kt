@@ -1,6 +1,5 @@
 package com.example.edureader.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -12,25 +11,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = ReaderPrimaryDark,
+    onPrimary = ReaderOnPrimaryDark,
+    primaryContainer = ReaderPrimaryContainerDark,
+    onPrimaryContainer = ReaderOnPrimaryContainerDark,
+    secondary = ReaderSecondaryDark,
+    onSecondary = ReaderOnSecondaryDark,
+    secondaryContainer = ReaderSecondaryContainerDark,
+    onSecondaryContainer = ReaderOnSecondaryContainerDark,
+    background = ReaderBackgroundDark,
+    surface = ReaderSurfaceDark,
+    onSurface = ReaderOnSurfaceDark,
+    onSurfaceVariant = ReaderOnSurfaceVariantDark,
+    outline = ReaderOutlineDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    primary = ReaderPrimaryLight,
+    onPrimary = ReaderOnPrimaryLight,
+    primaryContainer = ReaderPrimaryContainerLight,
+    onPrimaryContainer = ReaderOnPrimaryContainerLight,
+    secondary = ReaderSecondaryLight,
+    onSecondary = ReaderOnSecondaryLight,
+    secondaryContainer = ReaderSecondaryContainerLight,
+    onSecondaryContainer = ReaderOnSecondaryContainerLight,
+    background = ReaderBackgroundLight,
+    surface = ReaderSurfaceLight,
+    onSurface = ReaderOnSurfaceLight,
+    onSurfaceVariant = ReaderOnSurfaceVariantLight,
+    outline = ReaderOutlineLight
 )
 
 @Composable

@@ -1,4 +1,4 @@
-package com.example.edureader.presentation.reader
+package com.example.edureader.presentation.reader.contract
 
 sealed interface ReaderState {
     data object Idle : ReaderState

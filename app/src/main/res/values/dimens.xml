@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="reader_drawer_width">280dp</dimen>
+    <dimen name="reader_placeholder_horizontal_padding">20dp</dimen>
+    <dimen name="reader_placeholder_shape_radius">16dp</dimen>
+    <dimen name="reader_placeholder_icon_size">72dp</dimen>
+    <dimen name="reader_placeholder_min_height">220dp</dimen>
+    <dimen name="reader_placeholder_content_padding">24dp</dimen>
+    <dimen name="reader_placeholder_content_spacing">14dp</dimen>
+</resources>

@@ -117,22 +117,22 @@ class ZipEpubParser @Inject constructor(
 
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
             if (parser.eventType != XmlPullParser.START_TAG) continue
-            when (parser.name) {
-                "title" -> title = parser.nextText().trim()
-                "language" -> language = parser.nextText().trim().ifBlank { null }
-                "creator" -> {
+            when {
+                parser.isTag("title") -> title = parser.nextText().trim()
+                parser.isTag("language") -> language = parser.nextText().trim().ifBlank { null }
+                parser.isTag("creator") -> {
                     val author = parser.nextText().trim()
                     if (author.isNotEmpty()) authors += author
                 }
 
-                "meta" -> {
+                parser.isTag("meta") -> {
                     val name = parser.getAttributeValue(null, "name")
                     if (name == "cover") {
                         coverItemId = parser.getAttributeValue(null, "content")
                     }
                 }
 
-                "item" -> {
+                parser.isTag("item") -> {
                     val id = parser.getAttributeValue(null, "id") ?: continue
                     val href = parser.getAttributeValue(null, "href") ?: continue
                     val mediaType = parser.getAttributeValue(null, "media-type") ?: ""
@@ -140,7 +140,7 @@ class ZipEpubParser @Inject constructor(
                     manifest[id] = ManifestItem(id, href, mediaType, properties)
                 }
 
-                "itemref" -> {
+                parser.isTag("itemref") -> {
                     val idRef = parser.getAttributeValue(null, "idref") ?: continue
                     val linear = parser.getAttributeValue(null, "linear") != "no"
                     spineItems += SpineRef(idRef, linear)
@@ -236,6 +236,11 @@ class ZipEpubParser @Inject constructor(
             setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
             setInput(input, null)
         }
+    }
+
+    private fun XmlPullParser.isTag(localName: String): Boolean {
+        val rawName = name ?: return false
+        return rawName == localName || rawName.endsWith(":$localName")
     }
 
     private fun extractZipIfNeeded(file: File, zip: ZipFile): String {
