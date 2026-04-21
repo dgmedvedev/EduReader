@@ -16,6 +16,7 @@ import com.example.edureader.domain.usecase.GetReadingProgressUseCase
 import com.example.edureader.domain.usecase.ImportEpubFromUriUseCase
 import com.example.edureader.domain.usecase.ResolveInitialLocatorUseCase
 import com.example.edureader.domain.usecase.SaveReadingProgressUseCase
+import com.example.edureader.presentation.common.toTextSpec
 import com.example.edureader.presentation.reader.contract.ReaderIntent
 import com.example.edureader.presentation.reader.contract.ReaderReadyState
 import com.example.edureader.presentation.reader.contract.ReaderState
@@ -92,7 +93,7 @@ class ReaderViewModel @Inject constructor(
                 }
 
                 is DomainResult.Failure -> {
-                    _state.value = ReaderState.Failure(TextSpec.Raw(result.error.message))
+                    _state.value = ReaderState.Failure(result.error.toTextSpec())
                 }
             }
         }
@@ -102,7 +103,7 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch {
             val bookResult = getBookUseCase(bookId)
             if (bookResult is DomainResult.Failure) {
-                _state.value = ReaderState.Failure(TextSpec.Raw(bookResult.error.message))
+                _state.value = ReaderState.Failure(bookResult.error.toTextSpec())
                 return@launch
             }
             val book = (bookResult as DomainResult.Success).data
