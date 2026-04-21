@@ -11,7 +11,7 @@ import timber.log.Timber
 class MonitoringInitializer @Inject constructor(
     private val appLogger: AppLogger
 ) {
-    fun init(application: Application) {
+    fun init() {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         } else {
@@ -19,11 +19,14 @@ class MonitoringInitializer @Inject constructor(
         }
 
         runCatching {
-            FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
+            FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = !BuildConfig.DEBUG
         }.onFailure {
             Timber.tag(TAG).w(it, "Crashlytics is unavailable. Continuing with Timber only.")
         }
-        appLogger.i(TAG, "Monitoring initialized for ${if (BuildConfig.DEBUG) "debug" else "release"} build")
+        appLogger.i(
+            TAG,
+            "Monitoring initialized for ${if (BuildConfig.DEBUG) "debug" else "release"} build"
+        )
     }
 
     private class ReleaseTree : Timber.Tree() {

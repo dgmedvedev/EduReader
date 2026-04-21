@@ -13,6 +13,6 @@ class EduReaderApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        monitoringInitializer.init(this)
+        monitoringInitializer.init()
     }
 }
