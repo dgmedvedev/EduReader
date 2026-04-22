@@ -31,11 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,10 +61,12 @@ fun ReaderContent(
     onIntent: (ReaderIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(Unit) {
+        onIntent(ReaderIntent.RestoreCurrentScroll)
+    }
+
     var showChapters by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
-    val latestState by rememberUpdatedState(state)
-    val latestOnIntent by rememberUpdatedState(onIntent)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val drawerMenuItems: List<DrawerMenuItemUi> = remember {
@@ -93,7 +95,7 @@ fun ReaderContent(
         ModalNavigationDrawer(
             modifier = Modifier.graphicsLayer { clip = true },
             drawerState = drawerState,
-            gesturesEnabled = true,
+            gesturesEnabled = drawerState.isOpen,
             drawerContent = {
                 ReaderDrawerSheet(
                     title = stringResource(R.string.reader_drawer_menu_title),
@@ -172,18 +174,18 @@ fun ReaderContent(
                             .padding(8.dp)
                             .clip(RoundedCornerShape(14.dp)),
                         chapterFileUrl = state.currentChapterFileUrl,
-                        pendingRestoreProgressionInChapter = latestState.pendingRestoreProgressionInChapter,
+                        pendingRestoreProgressionInChapter = state.pendingRestoreProgressionInChapter,
                         onReportScroll = { scrollY, progressionInChapter ->
-                            latestOnIntent(
+                            onIntent(
                                 ReaderIntent.ReportScroll(
                                     scrollY = scrollY,
                                     progressionInChapter = progressionInChapter
                                 )
                             )
                         },
-                        onRestoreApplied = { latestOnIntent(ReaderIntent.RestoreScrollApplied) },
-                        onPreviousChapter = { latestOnIntent(ReaderIntent.PreviousChapter) },
-                        onNextChapter = { latestOnIntent(ReaderIntent.NextChapter) }
+                        onRestoreApplied = { onIntent(ReaderIntent.RestoreScrollApplied) },
+                        onPreviousChapter = { onIntent(ReaderIntent.PreviousChapter) },
+                        onNextChapter = { onIntent(ReaderIntent.NextChapter) }
                     )
                 }
 

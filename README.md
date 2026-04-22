@@ -1,178 +1,179 @@
 # EduReader
 
-EduReader is an Android EPUB reader built with Kotlin, Jetpack Compose, and a clean layered architecture.
+EduReader — Android-приложение для чтения EPUB, построенное на Kotlin, Jetpack Compose и слоистой архитектуре.
 
-## Project Scope
+## Назначение проекта
 
-- Import local `.epub` files selected via Android document picker.
-- Parse EPUB structure (`container.xml`, OPF, manifest, spine, navigation) and render chapter content.
-- Persist reading progress and restore the last opened book.
-- Provide runtime monitoring and crash diagnostics.
+- Импорт локальных `.epub` файлов через системный выбор документа Android.
+- Парсинг структуры EPUB (`container.xml`, OPF, manifest, spine, navigation) и отображение контента глав.
+- Сохранение прогресса чтения и восстановление последней открытой книги.
+- Мониторинг рантайма и диагностика сбоев.
 
-## Architecture
+## Архитектура
 
-### General Approach
+### Общий подход
 
-The app follows a pragmatic Clean Architecture style with explicit boundaries:
+Применен прагматичный вариант Clean Architecture с явными границами:
 
-- `presentation`: UI, interaction handling, screen state, user intents.
-- `domain`: use cases, repository interfaces, business models, result/error contracts.
-- `data`: repository implementations, local storage, EPUB parsing, Android-specific import source resolution.
-- `core`: DI setup, monitoring/logging abstractions, shared utilities.
+- `presentation`: UI, обработка пользовательских интентов, состояние экрана.
+- `domain`: use case, интерфейсы репозиториев, бизнес-модели, контракты результата/ошибок.
+- `data`: реализации репозиториев, локальное хранение, парсинг EPUB, Android-специфичная работа с источником импорта.
+- `core`: DI-настройка, абстракции мониторинга/логирования, общие утилиты.
 
-This separation keeps UI and framework concerns isolated from business logic and allows replacing data sources without changing use cases.
+Такое разделение изолирует UI и платформенные детали от бизнес-логики и упрощает замену источников данных.
 
-### Layer Responsibilities
+### Разделение на слои и зоны ответственности
 
 - **Presentation (`presentation/`)**
-  - `ReaderViewModel` orchestrates user intents and state transitions.
-  - `ReaderState` is modeled as explicit states: `Idle`, `Importing`, `Ready`, `Failure`.
-  - Compose screens (`ReaderScreen`, `ReaderContent`) render based on immutable state snapshots.
+  - `ReaderViewModel` управляет интентами и переходами состояния.
+  - `ReaderState` описан явными состояниями: `Idle`, `Importing`, `Ready`, `Failure`.
+  - Compose-экраны рендерятся из иммутабельного состояния.
 - **Domain (`domain/`)**
-  - Use cases (`ImportEpubFromUriUseCase`, `GetBookUseCase`, `SaveReadingProgressUseCase`, etc.) encode application workflows.
-  - `DomainResult` and `DomainError` provide a typed contract for success/failure.
-  - Repository interfaces (`EpubRepository`, `ReadingProgressRepository`) define behavior independently from storage/parsing details.
+  - Use case описывают прикладные сценарии.
+  - `DomainResult` и `DomainError` задают типобезопасный контракт успеха/ошибки.
+  - Интерфейсы репозиториев определяют поведение независимо от деталей хранения/парсинга.
 - **Data (`data/`)**
-  - `EpubRepositoryImpl` and `ReadingProgressRepositoryImpl` implement repository contracts.
-  - `ZipEpubParser` parses EPUB archives and validates required structure.
-  - `AndroidEpubImportSourceResolver` copies selected content URI into app-private storage.
-  - SharedPreferences-backed data sources persist catalog mappings and reading progress.
+  - Реализации репозиториев связывают доменные контракты с парсером и хранилищем.
+  - `ZipEpubParser` валидирует и парсит EPUB-архивы.
+  - `AndroidEpubImportSourceResolver` копирует выбранный URI в приватное хранилище приложения.
+  - DataSource на SharedPreferences хранят каталог книг и прогресс чтения.
 - **Core (`core/`)**
-  - Hilt modules configure bindings and storage providers.
-  - `AppLogger` decouples domain/presentation logging from concrete logger implementation.
-  - `MonitoringInitializer` initializes Timber and configures Crashlytics behavior by build type.
+  - Hilt-модули настраивают биндинги и провайдеры хранения.
+  - `AppLogger` отделяет код приложения от конкретного логгера.
+  - `MonitoringInitializer` конфигурирует Timber и поведение Crashlytics по типу сборки.
 
-### State Management
+### Управление состоянием
 
-- Single source of truth: `MutableStateFlow<ReaderState>` in `ReaderViewModel`.
-- UI consumes `StateFlow` via Compose `collectAsState()`.
-- User actions are modeled as intents (`ReaderIntent`) and processed in one entry point (`onIntent`).
-- Progress persistence is debounced (500 ms) to reduce frequent writes while scrolling.
-- On app backgrounding, pending progress is flushed immediately.
+- Единый источник истины: `MutableStateFlow<ReaderState>` в `ReaderViewModel`.
+- UI подписывается на `StateFlow` через Compose `collectAsStateWithLifecycle()`.
+- Действия пользователя представлены как `ReaderIntent` и обрабатываются в единой точке входа.
+- Сохранение прогресса выполняется с debounce (500 мс), чтобы снизить частоту записи.
+- При уходе приложения в фон отложенное сохранение выполняется немедленно.
 
-### Error Handling and Non-standard Scenarios
+### Обработка ошибок и нестандартных сценариев
 
-- Domain-level typed errors:
-  - `Validation` (unsupported extension),
-  - `NotFound` (missing file/book),
-  - `Parsing` (invalid EPUB structure/content),
-  - `Storage` (I/O and URI access failures),
-  - `Unknown` (fallback).
-- UI receives user-facing failures via `ReaderState.Failure`.
-- Operational errors are reported through `AppLogger` with contextual tags.
-- Non-standard scenarios explicitly handled:
-  - Empty EPUB spine -> fail with dedicated message.
-  - Missing/invalid MIME marker in EPUB -> parsing failure.
-  - Corrupted ZIP/XML -> parsing failure with diagnostic cause.
-  - Unsafe ZIP paths (zip-slip) -> extraction denied.
-  - Missing TOC -> fallback generated from spine entries.
+- Типы доменных ошибок:
+  - `Validation` (неподдерживаемое расширение),
+  - `NotFound` (файл/книга не найдены),
+  - `Parsing` (некорректная структура/содержимое EPUB),
+  - `Storage` (ошибки I/O и доступа по URI),
+  - `Unknown` (резервный тип).
+- Пользовательские ошибки передаются в UI через `ReaderState.Failure`.
+- Операционные ошибки логируются через `AppLogger` с контекстом операции.
+- Явно обработанные edge-case:
+  - пустой `spine` в EPUB,
+  - отсутствующий/невалидный `mimetype`,
+  - поврежденный ZIP/XML,
+  - небезопасные пути архива (защита от zip-slip),
+  - отсутствие TOC (fallback на основе `spine`).
 
-### Key Decisions and Rationale
+### Обоснование ключевых решений
 
-- **StateFlow + explicit sealed state**: deterministic rendering and easier recovery logic.
-- **Use cases + repositories**: testable and framework-agnostic business workflows.
-- **App-private file copy before parsing**: stable random access and simplified parser I/O.
-- **SharedPreferences for metadata/progress**: low operational complexity for current app size.
-- **Deferred persistence (debounce + flush on pause)**: balance between durability and write frequency.
+- **StateFlow + sealed state** обеспечивают предсказуемые переходы UI-состояний.
+- **Use case + repository** повышают тестируемость и снижают связность с Android-фреймворком.
+- **Копирование файла в приватное хранилище перед парсингом** дает стабильный локальный доступ.
+- **SharedPreferences** снижает операционную сложность на текущем масштабе.
+- **Отложенное сохранение позиции** балансирует надежность и количество операций записи.
 
-### Known Limitations and Vulnerable Areas
+### Ограничения и уязвимые части решения
 
-- No encryption for imported EPUB files in internal storage.
-- SharedPreferences is not ideal for large-scale metadata or multi-book analytics.
-- Parser uses regex for nav extraction and may be less robust for malformed/complex XHTML navigation.
-- Release build currently has `isMinifyEnabled = false`, increasing APK size and reverse-engineering surface.
-- Crashlytics is optional at runtime; if unavailable, diagnostics quality is reduced to local logs.
-- No CI workflow is configured in repository yet (checks are local unless external pipeline is added).
+- Нет шифрования импортированных EPUB во внутреннем хранилище.
+- SharedPreferences хуже масштабируется для большого каталога и сложных выборок.
+- Regex-парсинг `nav` может быть хрупким для поврежденной разметки.
+- В `release` отключена минификация (`isMinifyEnabled = false`).
+- Crashlytics не является обязательной runtime-зависимостью: при недоступности снижается глубина диагностики.
+- В репозитории отсутствуют CI workflow-файлы.
 
-## Production Operations
+## Эксплуатация в production
 
-### Support Model
+### Поддержка
 
-- **Monitoring stack**
-  - Timber (`DebugTree` in debug, custom release tree in release).
-  - Firebase Crashlytics in release mode when available.
-- **Incident detection**
-  - Crashlytics: crash clusters, stack traces, affected versions.
-  - Timber logs: local reproduction and context diagnostics.
-- **Prioritization**
-  - P0: startup crash/data loss/cannot open EPUB.
-  - P1: reading flow broken for a subset of files.
-  - P2: non-critical UX defects and cosmetic issues.
-- **Response process**
-  - Triage incoming issue (impact, reproducibility, scope).
-  - Reproduce with sample EPUB and environment details.
-  - Prepare fix with focused regression checks.
-  - Release patch and monitor crash-free sessions trend.
+- **Инструменты мониторинга**
+  - Timber (`DebugTree` в debug, кастомный release tree в release).
+  - Firebase Crashlytics в release-сборках при доступности сервиса.
+- **Выявление инцидентов**
+  - Crashlytics: кластеры падений, stack trace, затронутые версии.
+  - Timber-логи: контекст для воспроизведения.
+- **Приоритизация**
+  - P0: падение на старте/потеря данных/невозможно открыть EPUB.
+  - P1: критичная деградация reader-flow.
+  - P2: некритичные UX-дефекты.
+- **Процесс реагирования**
+  - Триаж (влияние, воспроизводимость, охват).
+  - Воспроизведение на конкретном EPUB и окружении.
+  - Подготовка фикса и регрессионные проверки.
+  - Выкладка патча и мониторинг метрик стабильности.
 
-### Failures and Error Correction Process
+### Обработка сбоев и ошибок
 
-- Errors surface via `DomainResult.Failure` and are logged with operation context.
-- Root-cause analysis combines:
-  - domain error category,
-  - stack trace/cause (if present),
-  - specific EPUB sample that triggered the issue.
-- Typical remediation flow:
-  1. Add/extend validation in parser/import.
-  2. Improve fallback behavior in ViewModel/UI.
-  3. Add regression test case (unit/instrumented) for failed scenario.
-  4. Publish patch and verify telemetry deltas.
+- Ошибки поднимаются как `DomainResult.Failure` и журналируются с контекстом операции.
+- Анализ причин включает:
+  - тип `DomainError`,
+  - stack/cause,
+  - проблемный EPUB-образец.
+- Базовый процесс исправления:
+  1. усилить валидацию импорта/парсинга,
+  2. улучшить fallback-ветки в ViewModel/UI,
+  3. добавить регрессионные тесты,
+  4. выпустить патч и проверить телеметрию.
 
-### Releases and Risk Mitigation
+### Релизы и минимизация рисков
 
-- Recommended release flow:
-  1. Local checks: `./gradlew test`, `./gradlew connectedAndroidTest` (if device/emulator available), `./gradlew lint`.
-  2. Build release artifact: `./gradlew assembleRelease`.
-  3. Stage rollout in Play Console (small percentage first), monitor crash and ANR metrics.
-  4. Expand rollout after stability confirmation.
-- Risk controls:
-  - Keep changes small and feature-focused.
-  - Validate with a corpus of real-world EPUB files (valid + intentionally corrupted).
-  - Preserve compatibility with previously imported local books and saved progress.
+- Рекомендуемый release-flow:
+  1. `./gradlew test`
+  2. `./gradlew lint`
+  3. `./gradlew connectedAndroidTest` (если есть устройство/эмулятор)
+  4. `./gradlew assembleRelease`
+  5. staged rollout с мониторингом crash/ANR.
+- Практики снижения риска:
+  - небольшие и сфокусированные изменения,
+  - проверка на валидных и специально поврежденных EPUB,
+  - сохранение совместимости с ранее импортированными книгами и прогрессом.
 
-## EPUB Handling
+## Работа с EPUB
 
-### Local Storage and Processing Flow
+### Локальное хранение и обработка файла
 
-1. User picks a document URI via SAF (`OpenDocument`).
-2. Content is copied into app-private `filesDir/imported_epub`.
-3. EPUB is validated and parsed as ZIP archive.
-4. Archive is extracted into `filesDir/epub_extracted/<hashed-path>`.
-5. Parsed metadata/spine/TOC are used for reader navigation and rendering.
-6. Catalog mapping and progress are persisted in SharedPreferences.
+1. Пользователь выбирает URI документа через SAF (`OpenDocument`).
+2. Контент копируется в приватное `filesDir/imported_epub`.
+3. EPUB валидируется и парсится как ZIP-архив.
+4. Архив извлекается в `filesDir/epub_extracted/<hash-пути>`.
+5. Метаданные/spine/TOC используются для навигации и рендера.
+6. Маппинг каталога и прогресс чтения сохраняются в SharedPreferences.
 
-### Current Approach Constraints
+### Ограничения выбранного подхода
 
-- Files remain local to app internal storage; no cloud sync.
-- Re-imports can create multiple copies of same logical book.
-- No cleanup policy for old imported/extracted files yet.
-- Very large EPUB files may increase storage pressure and extraction time.
+- Хранение только локальное (без облачной синхронизации).
+- Повторный импорт может создавать дубли локальных копий.
+- Нет автоматической политики очистки старых импортов/распаковок.
+- Крупные EPUB могут увеличивать время распаковки и нагрузку на хранилище.
 
-## Performance
+## Производительность
 
-### Potential Bottlenecks
+### Возможные проблемы
 
-- EPUB extraction and XML parsing for large archives.
-- Frequent progress saves during intense scrolling if debounce is bypassed.
-- WebView rendering complexity for heavy chapter HTML/CSS.
-- Storage growth from accumulated imported/extracted books.
+- Тяжелая распаковка EPUB и XML-парсинг для больших архивов.
+- Частые записи прогресса при интенсивной прокрутке.
+- Стоимость рендера WebView для сложных HTML/CSS-глав.
+- Рост потребления хранилища по мере накопления импортированных книг.
 
-### Optimization Techniques
+### Текущие методы оптимизации
 
-- Debounced progress persistence and explicit flush on lifecycle pause.
-- Lazy chapter navigation using spine index rather than full-book in-memory rendering.
-- Persistent extracted cache marker (`.extracted`) to avoid repeated extraction.
-- Keep parser and file I/O on `Dispatchers.IO`.
+- Debounce сохранения прогресса и flush при уходе в фон.
+- Навигация на уровне глав по индексу `spine` (без полного рендера книги в памяти).
+- Маркер `.extracted` для исключения повторной распаковки.
+- Парсинг и файловый I/O выполняются на `Dispatchers.IO`.
 
-### Additional Optimization Opportunities
+### Дополнительные направления оптимизации
 
-- Add background cleanup policy for stale imported/extracted books.
-- Replace SharedPreferences with Room for scalable indexing/querying.
-- Precompute and cache chapter offsets/TOC mappings for very large books.
-- Add macrobenchmark/perf tracing for cold start, import latency, chapter switch time.
+- Политика очистки устаревших импортов/распаковок.
+- Миграция на Room для масштабируемого индексирования/запросов метаданных.
+- Кэширование смещений глав и TOC-маппинга для крупных книг.
+- Макробенчмарки cold start, import latency, chapter switch latency.
 
-## Dependencies and Toolchain
+## Зависимости, версии инструментов и запуск
 
-### Build and Language
+### Сборка и язык
 
 - Android Gradle Plugin: `8.12.3`
 - Gradle Wrapper: `8.13`
@@ -181,7 +182,7 @@ This separation keeps UI and framework concerns isolated from business logic and
 - compileSdk / targetSdk: `36`
 - minSdk: `24`
 
-### Core Runtime Libraries
+### Основные библиотеки runtime
 
 - AndroidX Core KTX `1.18.0`
 - Lifecycle Runtime/ViewModel KTX `2.10.0`
@@ -192,59 +193,53 @@ This separation keeps UI and framework concerns isolated from business logic and
 - Timber `5.0.1`
 - Firebase BoM `34.12.0` + Crashlytics
 
-### Testing Libraries
+### Тестовые библиотеки
 
 - JUnit `4.13.2`
 - AndroidX JUnit `1.3.0`
 - Espresso Core `3.7.0`
-- Compose UI test artifacts from Compose BOM
+- Compose UI test-артефакты из Compose BOM
 
-## Third-party Libraries: Why They Were Chosen
+## Сторонние библиотеки: обоснование и ограничения
 
-- **Hilt**: standard Android DI with compile-time graph validation; limitation: generated code and annotation processing complexity.
-- **Timber**: lightweight structured logging API; limitation: not a full observability backend itself.
-- **Firebase Crashlytics**: production crash aggregation and grouping; limitation: external service dependency and optional availability in restricted environments.
-- **Jetpack Compose**: declarative UI with direct state-driven rendering; limitation: potential recomposition/performance tuning required for complex screens.
+- **Hilt**: стандартный DI для Android с compile-time проверкой графа; ограничение — сложность сгенерированного кода.
+- **Timber**: легковесное структурированное логирование; ограничение — не заменяет полноценную observability-платформу.
+- **Firebase Crashlytics**: агрегация production-падений; ограничение — внешняя сервисная зависимость.
+- **Jetpack Compose**: декларативный state-driven UI; ограничение — для сложных экранов нужна настройка recomposition/perf.
 
-## Setup and Run
+## Шаги запуска
 
-### Prerequisites
+### Требования
 
-- Android Studio (latest stable recommended, with Kotlin 2.2+ support).
-- Android SDK Platform 36 installed.
-- JDK 17 available (or use Android Studio embedded JDK 17).
-- Android device/emulator with API 24+.
+- Android Studio (актуальная stable-версия, поддержка Kotlin 2.2+).
+- Android SDK Platform 36.
+- JDK 17 (или встроенный JDK Android Studio).
+- Устройство/эмулятор Android API 24+.
 
-### Build and Launch (Debug)
+### Сборка и запуск Debug
 
 ```bash
 ./gradlew assembleDebug
 ./gradlew installDebug
 ```
 
-Or run directly from Android Studio (`app` configuration).
+Или запуск из Android Studio (`app` configuration).
 
-### Run Quality Checks
+### Проверки качества
 
 ```bash
 ./gradlew test
 ./gradlew lint
 ```
 
-For instrumented tests (requires connected device/emulator):
-
-```bash
-./gradlew connectedAndroidTest
-```
-
-### Build Release Artifact
+### Сборка Release
 
 ```bash
 ./gradlew assembleRelease
 ```
 
-## Operational Notes
+## Дополнительные эксплуатационные примечания
 
-- Crashlytics collection is disabled in debug builds and enabled in release builds (if Firebase is available at runtime).
-- If Crashlytics initialization fails, app continues with Timber-only logging.
-- Current project does not include CI workflow files; all checks are executed locally unless integrated into external CI/CD.
+- Сбор Crashlytics отключен в debug и включен в release при доступности Firebase.
+- Если инициализация Crashlytics не удалась, приложение продолжает работу с Timber-only логированием.
+- CI workflow-файлы в репозитории пока отсутствуют; проверки выполняются локально, если не подключен внешний CI/CD.

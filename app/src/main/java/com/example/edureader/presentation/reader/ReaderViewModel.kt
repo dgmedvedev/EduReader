@@ -51,6 +51,7 @@ class ReaderViewModel @Inject constructor(
     private var currentExtractedBasePath: String? = null
     private var pendingSaveJob: Job? = null
     private var lastPendingLocator: BookLocator? = null
+    private var latestProgressionInChapter: Double? = null
 
     init {
         restoreLastOpenedBook()
@@ -66,6 +67,7 @@ class ReaderViewModel @Inject constructor(
                 debounce = true
             )
 
+            ReaderIntent.RestoreCurrentScroll -> queueCurrentScrollRestore()
             ReaderIntent.AppBackgrounded -> flushPendingLocator()
             ReaderIntent.RestoreScrollApplied -> clearPendingScrollRestore()
 
@@ -119,7 +121,10 @@ class ReaderViewModel @Inject constructor(
             val savedProgress = when (progressResult) {
                 is DomainResult.Success -> progressResult.data
                 is DomainResult.Failure -> {
-                    appLogger.reportDomainError("ReaderViewModel.openBook.getReadingProgress", progressResult.error)
+                    appLogger.reportDomainError(
+                        "ReaderViewModel.openBook.getReadingProgress",
+                        progressResult.error
+                    )
                     null
                 }
             }
@@ -149,6 +154,7 @@ class ReaderViewModel @Inject constructor(
                     pendingRestoreProgressionInChapter = initialLocator?.progressionInResource
                 )
             )
+            latestProgressionInChapter = initialLocator?.progressionInResource
             if (initialLocator != null) {
                 persistLocator(initialLocator)
             }
@@ -176,9 +182,10 @@ class ReaderViewModel @Inject constructor(
             ready.copy(
                 currentChapterIndex = spineIndex,
                 currentChapterFileUrl = targetUrl,
-                pendingRestoreProgressionInChapter = 0.0
+                pendingRestoreProgressionInChapter = null
             )
         )
+        latestProgressionInChapter = 0.0
         persistCurrentLocator(scrollY = 0, progressionInChapter = 0.0, debounce = false)
     }
 
@@ -205,6 +212,7 @@ class ReaderViewModel @Inject constructor(
             progressionInResource = progressionInChapter.coerceIn(0.0, 1.0),
             progressInBook = progressInBook
         )
+        latestProgressionInChapter = locator.progressionInResource
         lastPendingLocator = locator
         if (!debounce) {
             persistLocator(locator)
@@ -244,6 +252,18 @@ class ReaderViewModel @Inject constructor(
         if (ready.pendingRestoreProgressionInChapter == null) return
         _state.value = ReaderState.Ready(
             ready.copy(pendingRestoreProgressionInChapter = null)
+        )
+    }
+
+    private fun queueCurrentScrollRestore() {
+        val ready = (_state.value as? ReaderState.Ready)?.data ?: return
+        if (ready.pendingRestoreProgressionInChapter != null) return
+        val progressionToRestore = latestProgressionInChapter ?: return
+
+        _state.value = ReaderState.Ready(
+            ready.copy(
+                pendingRestoreProgressionInChapter = progressionToRestore.coerceIn(0.0, 1.0)
+            )
         )
     }
 

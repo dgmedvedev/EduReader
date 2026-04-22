@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.edureader.R
 import com.example.edureader.presentation.common.asString
 import com.example.edureader.presentation.reader.contract.ReaderIntent
@@ -49,7 +49,7 @@ fun ReaderRoute(
     onCloseApp: () -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel()
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     var showExitDialog by remember { mutableStateOf(false) }
     val pickEpubLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
