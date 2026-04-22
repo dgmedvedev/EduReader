@@ -27,6 +27,7 @@ EduReader — Android-приложение для чтения EPUB, постр�
 - **Presentation (`presentation/`)**
   - `ReaderViewModel` управляет интентами и переходами состояния.
   - `ReaderState` описан явными состояниями: `Idle`, `Importing`, `Ready`, `Failure`.
+  - `ReaderUiState` хранит UI-флаги (видимость диалогов и нижней панели).
   - Compose-экраны рендерятся из иммутабельного состояния.
 - **Domain (`domain/`)**
   - Use case описывают прикладные сценарии.
@@ -44,8 +45,9 @@ EduReader — Android-приложение для чтения EPUB, постр�
 
 ### Управление состоянием
 
-- Единый источник истины: `MutableStateFlow<ReaderState>` в `ReaderViewModel`.
-- UI подписывается на `StateFlow` через Compose `collectAsStateWithLifecycle()`.
+- Источник истины для контентного состояния: `MutableStateFlow<ReaderState>` в `ReaderViewModel`.
+- UI-состояния диалогов и нижней панели вынесены отдельно в `MutableStateFlow<ReaderUiState>`.
+- Compose-экраны подписываются на оба `StateFlow` через `collectAsStateWithLifecycle()`.
 - Действия пользователя представлены как `ReaderIntent` и обрабатываются в единой точке входа.
 - Сохранение прогресса выполняется с debounce (500 мс), чтобы снизить частоту записи.
 - При уходе приложения в фон отложенное сохранение выполняется немедленно.
@@ -69,7 +71,8 @@ EduReader — Android-приложение для чтения EPUB, постр�
 
 ### Обоснование ключевых решений
 
-- **StateFlow + sealed state** обеспечивают предсказуемые переходы UI-состояний.
+- **StateFlow + sealed state** обеспечивают предсказуемые переходы контентного состояния экрана.
+- **Отдельный UI-state (`ReaderUiState`)** помогает хранить устойчивые UI-флаги во ViewModel вместо локального `remember`.
 - **Use case + repository** повышают тестируемость и снижают связность с Android-фреймворком.
 - **Копирование файла в приватное хранилище перед парсингом** дает стабильный локальный доступ.
 - **SharedPreferences** снижает операционную сложность на текущем масштабе.

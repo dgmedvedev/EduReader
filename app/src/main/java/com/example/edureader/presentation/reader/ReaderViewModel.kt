@@ -21,6 +21,7 @@ import com.example.edureader.presentation.common.toTextSpec
 import com.example.edureader.presentation.reader.contract.ReaderIntent
 import com.example.edureader.presentation.reader.contract.ReaderReadyState
 import com.example.edureader.presentation.reader.contract.ReaderState
+import com.example.edureader.presentation.reader.contract.ReaderUiState
 import com.example.edureader.presentation.reader.contract.TextSpec
 import com.example.edureader.presentation.reader.model.ReaderTocItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -46,6 +47,8 @@ class ReaderViewModel @Inject constructor(
 
     private val _state = MutableStateFlow<ReaderState>(ReaderState.Idle)
     val state: StateFlow<ReaderState> = _state.asStateFlow()
+    private val _uiState = MutableStateFlow(ReaderUiState())
+    val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
 
     private var currentBookId: BookId? = null
     private var currentExtractedBasePath: String? = null
@@ -66,6 +69,9 @@ class ReaderViewModel @Inject constructor(
                 progressionInChapter = intent.progressionInChapter,
                 debounce = true
             )
+            is ReaderIntent.SetExitDialogVisible -> updateExitDialogVisibility(intent.visible)
+            is ReaderIntent.SetChaptersSheetVisible -> updateChaptersSheetVisibility(intent.visible)
+            is ReaderIntent.SetAboutDialogVisible -> updateAboutDialogVisibility(intent.visible)
 
             ReaderIntent.RestoreCurrentScroll -> queueCurrentScrollRestore()
             ReaderIntent.AppBackgrounded -> flushPendingLocator()
@@ -265,6 +271,18 @@ class ReaderViewModel @Inject constructor(
                 pendingRestoreProgressionInChapter = progressionToRestore.coerceIn(0.0, 1.0)
             )
         )
+    }
+
+    private fun updateExitDialogVisibility(visible: Boolean) {
+        _uiState.value = _uiState.value.copy(showExitDialog = visible)
+    }
+
+    private fun updateChaptersSheetVisibility(visible: Boolean) {
+        _uiState.value = _uiState.value.copy(showChaptersSheet = visible)
+    }
+
+    private fun updateAboutDialogVisibility(visible: Boolean) {
+        _uiState.value = _uiState.value.copy(showAboutDialog = visible)
     }
 
     private fun buildTocItems(

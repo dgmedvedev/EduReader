@@ -22,9 +22,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +39,7 @@ import com.example.edureader.R
 import com.example.edureader.presentation.common.asString
 import com.example.edureader.presentation.reader.contract.ReaderIntent
 import com.example.edureader.presentation.reader.contract.ReaderState
+import com.example.edureader.presentation.reader.contract.ReaderUiState
 import com.example.edureader.presentation.reader.components.ReaderContent
 import com.example.edureader.ui.theme.EduReaderTheme
 
@@ -52,7 +50,7 @@ fun ReaderRoute(
     viewModel: ReaderViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var showExitDialog by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pickEpubLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -67,17 +65,19 @@ fun ReaderRoute(
     }
 
     BackHandler {
-        showExitDialog = true
+        viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = true))
     }
 
-    if (showExitDialog) {
+    if (uiState.showExitDialog) {
         AlertDialog(
-            onDismissRequest = { showExitDialog = false },
+            onDismissRequest = {
+                viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
+            },
             dismissButton = {
                 Column(horizontalAlignment = Alignment.Start) {
                     TextButton(
                         onClick = {
-                            showExitDialog = false
+                            viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
                         }
                     ) {
                         Text(
@@ -87,7 +87,7 @@ fun ReaderRoute(
                     }
                     TextButton(
                         onClick = {
-                            showExitDialog = false
+                            viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
                             pickEpubLauncher.launch(input = arrayOf(epubMimeType))
                         }
                     ) {
@@ -98,7 +98,7 @@ fun ReaderRoute(
                     }
                     TextButton(
                         onClick = {
-                            showExitDialog = false
+                            viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
                             onCloseApp()
                         }
                     ) {
@@ -115,6 +115,7 @@ fun ReaderRoute(
 
     ReaderScreen(
         state = state,
+        uiState = uiState,
         onPickBook = { pickEpubLauncher.launch(input = arrayOf(epubMimeType)) },
         onIntent = viewModel::onIntent,
         modifier = modifier
@@ -124,6 +125,7 @@ fun ReaderRoute(
 @Composable
 private fun ReaderScreen(
     state: ReaderState,
+    uiState: ReaderUiState,
     modifier: Modifier = Modifier,
     onPickBook: () -> Unit,
     onIntent: (ReaderIntent) -> Unit
@@ -175,6 +177,7 @@ private fun ReaderScreen(
         is ReaderState.Ready -> {
             ReaderContent(
                 state = state.data,
+                uiState = uiState,
                 onPickBook = onPickBook,
                 onIntent = onIntent,
                 modifier = modifier
@@ -239,6 +242,7 @@ private fun ReaderScreenIdlePreview() {
     EduReaderTheme {
         ReaderScreen(
             state = ReaderState.Idle,
+            uiState = ReaderUiState(),
             onPickBook = {},
             onIntent = {}
         )
