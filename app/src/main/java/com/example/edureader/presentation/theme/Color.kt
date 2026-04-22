@@ -1,0 +1,31 @@
+package com.example.edureader.presentation.theme
+
+import androidx.compose.ui.graphics.Color
+
+val ReaderPrimaryLight = Color(0xFF355E9B)
+val ReaderOnPrimaryLight = Color(0xFFFFFFFF)
+val ReaderPrimaryContainerLight = Color(0xFFE3EBFF)
+val ReaderOnPrimaryContainerLight = Color(0xFF11284A)
+val ReaderSecondaryLight = Color(0xFF5A6476)
+val ReaderOnSecondaryLight = Color(0xFFFFFFFF)
+val ReaderSecondaryContainerLight = Color(0xFFE1E7F5)
+val ReaderOnSecondaryContainerLight = Color(0xFF1D2736)
+val ReaderBackgroundLight = Color(0xFFF3F4F8)
+val ReaderSurfaceLight = Color(0xFFF7F8FC)
+val ReaderOnSurfaceLight = Color(0xFF1D2026)
+val ReaderOnSurfaceVariantLight = Color(0xFF4E5360)
+val ReaderOutlineLight = Color(0xFF7A8190)
+
+val ReaderPrimaryDark = Color(0xFFABC6FF)
+val ReaderOnPrimaryDark = Color(0xFF0E2A52)
+val ReaderPrimaryContainerDark = Color(0xFF2B4C7D)
+val ReaderOnPrimaryContainerDark = Color(0xFFDDE8FF)
+val ReaderSecondaryDark = Color(0xFFC2C9D9)
+val ReaderOnSecondaryDark = Color(0xFF2E3746)
+val ReaderSecondaryContainerDark = Color(0xFF454E5E)
+val ReaderOnSecondaryContainerDark = Color(0xFFE1E7F5)
+val ReaderBackgroundDark = Color(0xFF1B1E24)
+val ReaderSurfaceDark = Color(0xFF20242B)
+val ReaderOnSurfaceDark = Color(0xFFE4E7EF)
+val ReaderOnSurfaceVariantDark = Color(0xFFB8BFCC)
+val ReaderOutlineDark = Color(0xFF8D95A4)

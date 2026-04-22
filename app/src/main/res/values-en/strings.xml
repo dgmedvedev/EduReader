@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">EduReader</string>
+    <string name="reader_idle_title">Open an EPUB book</string>
+    <string name="reader_idle_subtitle">Import a file and continue reading from where you left off.</string>
+    <string name="reader_importing_title">Preparing the book</string>
+    <string name="reader_importing_subtitle">Importing and parsing the EPUB may take a few seconds.</string>
+    <string name="reader_failure_title">Could not open the book</string>
+    <string name="reader_error_epub_empty_content">No readable content found in this EPUB.</string>
+    <string name="reader_error_validation">Check the selected file and try again.</string>
+    <string name="reader_error_not_found">File not found. Choose another EPUB.</string>
+    <string name="reader_error_storage">Unable to access the file. Please try again.</string>
+    <string name="reader_error_parsing">Failed to parse EPUB. The file may be corrupted.</string>
+    <string name="reader_error_generic">Something went wrong. Please try again.</string>
+    <string name="reader_action_open_epub">Open EPUB</string>
+    <string name="reader_action_pick_another">Choose another EPUB</string>
+    <string name="reader_action_toc">Table of contents</string>
+    <string name="reader_action_open_other">Another file</string>
+    <string name="reader_action_close">Close</string>
+    <string name="reader_action_open_menu">Open menu</string>
+    <string name="reader_chapter_counter">Chapter %1$d of %2$d</string>
+    <string name="reader_toc_item_chapter">Chapter %1$d</string>
+    <string name="reader_drawer_menu_title">Menu</string>
+    <string name="reader_drawer_about">About the book</string>
+    <string name="reader_drawer_toc">Table of contents</string>
+    <string name="reader_drawer_pick_file">File selection</string>
+    <string name="reader_document_mime_epub">application/epub+zip</string>
+    <string name="reader_about_title">About the book</string>
+    <string name="reader_about_book_title_value">Title: %1$s</string>
+    <string name="reader_about_chapters_value">Total chapters: %1$d</string>
+    <string name="reader_about_toc_value">TOC items: %1$d</string>
+    <string name="reader_about_current_chapter_value">Current chapter: %1$d</string>
+    <string name="reader_exit_dialog_continue">Continue reading</string>
+    <string name="reader_exit_dialog_pick_another">Choose another file</string>
+    <string name="reader_exit_dialog_close_app">Close EduReader</string>
+</resources>
