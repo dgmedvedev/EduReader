@@ -1,4 +1,4 @@
-package com.example.edureader.ui.theme
+package com.example.edureader.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 

@@ -46,16 +46,16 @@ import androidx.compose.ui.unit.dp
 import com.example.edureader.R
 import com.example.edureader.presentation.common.asString
 import com.example.edureader.presentation.reader.contract.ReaderIntent
+import com.example.edureader.presentation.reader.contract.ReaderOverlayState
 import com.example.edureader.presentation.reader.contract.ReaderReadyState
-import com.example.edureader.presentation.reader.contract.ReaderUiState
 import com.example.edureader.presentation.reader.webview.ReaderContentWebView
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReaderContent(
+internal fun ReaderContent(
     state: ReaderReadyState,
-    uiState: ReaderUiState,
+    overlayState: ReaderOverlayState,
     onPickBook: () -> Unit,
     onIntent: (ReaderIntent) -> Unit,
     modifier: Modifier = Modifier
@@ -190,7 +190,7 @@ fun ReaderContent(
                     )
                 }
 
-                if (uiState.showChaptersSheet) {
+                if (overlayState.showChaptersSheet) {
                     ModalBottomSheet(
                         onDismissRequest = {
                             onIntent(ReaderIntent.SetChaptersSheetVisible(visible = false))
@@ -239,7 +239,7 @@ fun ReaderContent(
         }
     }
 
-    if (uiState.showAboutDialog) {
+    if (overlayState.showAboutDialog) {
         AlertDialog(
             onDismissRequest = {
                 onIntent(ReaderIntent.SetAboutDialogVisible(visible = false))

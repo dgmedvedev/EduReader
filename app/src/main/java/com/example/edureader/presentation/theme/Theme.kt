@@ -1,4 +1,4 @@
-package com.example.edureader.ui.theme
+package com.example.edureader.presentation.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -43,7 +43,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun EduReaderTheme(
+internal fun EduReaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

@@ -1,6 +1,6 @@
 package com.example.edureader.presentation.reader.contract
 
-sealed interface ReaderState {
+internal sealed interface ReaderState {
     data object Idle : ReaderState
     data object Importing : ReaderState
     data class Ready(val data: ReaderReadyState) : ReaderState
