@@ -4,7 +4,7 @@ import com.example.edureader.R
 import com.example.edureader.domain.common.DomainError
 import com.example.edureader.presentation.reader.contract.TextSpec
 
-fun DomainError.toTextSpec(): TextSpec =
+internal fun DomainError.toTextSpec(): TextSpec =
     when (this) {
         is DomainError.Validation -> TextSpec.Res(R.string.reader_error_validation)
         is DomainError.NotFound -> TextSpec.Res(R.string.reader_error_not_found)

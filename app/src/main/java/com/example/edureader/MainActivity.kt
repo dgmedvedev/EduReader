@@ -10,7 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import com.example.edureader.presentation.reader.ReaderRoute
-import com.example.edureader.ui.theme.EduReaderTheme
+import com.example.edureader.presentation.theme.EduReaderTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

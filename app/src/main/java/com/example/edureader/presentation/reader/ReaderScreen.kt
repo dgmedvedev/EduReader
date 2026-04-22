@@ -38,19 +38,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.edureader.R
 import com.example.edureader.presentation.common.asString
 import com.example.edureader.presentation.reader.contract.ReaderIntent
+import com.example.edureader.presentation.reader.contract.ReaderOverlayState
 import com.example.edureader.presentation.reader.contract.ReaderState
-import com.example.edureader.presentation.reader.contract.ReaderUiState
 import com.example.edureader.presentation.reader.components.ReaderContent
-import com.example.edureader.ui.theme.EduReaderTheme
+import com.example.edureader.presentation.theme.EduReaderTheme
 
 @Composable
-fun ReaderRoute(
+internal fun ReaderRoute(
     modifier: Modifier = Modifier,
     onCloseApp: () -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val overlayState by viewModel.overlayState.collectAsStateWithLifecycle()
     val pickEpubLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -65,19 +65,19 @@ fun ReaderRoute(
     }
 
     BackHandler {
-        viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = true))
+        viewModel.onIntent(ReaderIntent.OnBackButtonClicked)
     }
 
-    if (uiState.showExitDialog) {
+    if (overlayState.showExitDialog) {
         AlertDialog(
             onDismissRequest = {
-                viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
+                viewModel.onIntent(ReaderIntent.DismissExitDialog)
             },
             dismissButton = {
                 Column(horizontalAlignment = Alignment.Start) {
                     TextButton(
                         onClick = {
-                            viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
+                            viewModel.onIntent(ReaderIntent.DismissExitDialog)
                         }
                     ) {
                         Text(
@@ -87,7 +87,7 @@ fun ReaderRoute(
                     }
                     TextButton(
                         onClick = {
-                            viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
+                            viewModel.onIntent(ReaderIntent.DismissExitDialog)
                             pickEpubLauncher.launch(input = arrayOf(epubMimeType))
                         }
                     ) {
@@ -98,7 +98,7 @@ fun ReaderRoute(
                     }
                     TextButton(
                         onClick = {
-                            viewModel.onIntent(ReaderIntent.SetExitDialogVisible(visible = false))
+                            viewModel.onIntent(ReaderIntent.DismissExitDialog)
                             onCloseApp()
                         }
                     ) {
@@ -115,7 +115,7 @@ fun ReaderRoute(
 
     ReaderScreen(
         state = state,
-        uiState = uiState,
+        overlayState = overlayState,
         onPickBook = { pickEpubLauncher.launch(input = arrayOf(epubMimeType)) },
         onIntent = viewModel::onIntent,
         modifier = modifier
@@ -125,7 +125,7 @@ fun ReaderRoute(
 @Composable
 private fun ReaderScreen(
     state: ReaderState,
-    uiState: ReaderUiState,
+    overlayState: ReaderOverlayState,
     modifier: Modifier = Modifier,
     onPickBook: () -> Unit,
     onIntent: (ReaderIntent) -> Unit
@@ -177,7 +177,7 @@ private fun ReaderScreen(
         is ReaderState.Ready -> {
             ReaderContent(
                 state = state.data,
-                uiState = uiState,
+                overlayState = overlayState,
                 onPickBook = onPickBook,
                 onIntent = onIntent,
                 modifier = modifier
@@ -242,7 +242,7 @@ private fun ReaderScreenIdlePreview() {
     EduReaderTheme {
         ReaderScreen(
             state = ReaderState.Idle,
-            uiState = ReaderUiState(),
+            overlayState = ReaderOverlayState(),
             onPickBook = {},
             onIntent = {}
         )

@@ -1,10 +1,11 @@
 package com.example.edureader.presentation.reader.contract
 
-sealed interface ReaderIntent {
+internal sealed interface ReaderIntent {
     data class PickedDocument(val uriString: String) : ReaderIntent
     data class OpenTocItem(val spineIndex: Int, val href: String) : ReaderIntent
     data class ReportScroll(val scrollY: Int, val progressionInChapter: Double) : ReaderIntent
-    data class SetExitDialogVisible(val visible: Boolean) : ReaderIntent
+    data object OnBackButtonClicked : ReaderIntent
+    data object DismissExitDialog : ReaderIntent
     data class SetChaptersSheetVisible(val visible: Boolean) : ReaderIntent
     data class SetAboutDialogVisible(val visible: Boolean) : ReaderIntent
     data object RestoreCurrentScroll : ReaderIntent

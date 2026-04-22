@@ -19,9 +19,9 @@ import com.example.edureader.domain.usecase.ResolveInitialLocatorUseCase
 import com.example.edureader.domain.usecase.SaveReadingProgressUseCase
 import com.example.edureader.presentation.common.toTextSpec
 import com.example.edureader.presentation.reader.contract.ReaderIntent
+import com.example.edureader.presentation.reader.contract.ReaderOverlayState
 import com.example.edureader.presentation.reader.contract.ReaderReadyState
 import com.example.edureader.presentation.reader.contract.ReaderState
-import com.example.edureader.presentation.reader.contract.ReaderUiState
 import com.example.edureader.presentation.reader.contract.TextSpec
 import com.example.edureader.presentation.reader.model.ReaderTocItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,7 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class ReaderViewModel @Inject constructor(
+internal class ReaderViewModel @Inject constructor(
     private val importEpubFromUriUseCase: ImportEpubFromUriUseCase,
     private val getBookUseCase: GetBookUseCase,
     private val getLastOpenedBookIdUseCase: GetLastOpenedBookIdUseCase,
@@ -47,8 +47,8 @@ class ReaderViewModel @Inject constructor(
 
     private val _state = MutableStateFlow<ReaderState>(ReaderState.Idle)
     val state: StateFlow<ReaderState> = _state.asStateFlow()
-    private val _uiState = MutableStateFlow(ReaderUiState())
-    val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
+    private val _overlayState = MutableStateFlow(ReaderOverlayState())
+    val overlayState: StateFlow<ReaderOverlayState> = _overlayState.asStateFlow()
 
     private var currentBookId: BookId? = null
     private var currentExtractedBasePath: String? = null
@@ -69,7 +69,8 @@ class ReaderViewModel @Inject constructor(
                 progressionInChapter = intent.progressionInChapter,
                 debounce = true
             )
-            is ReaderIntent.SetExitDialogVisible -> updateExitDialogVisibility(intent.visible)
+            ReaderIntent.OnBackButtonClicked -> showExitDialog()
+            ReaderIntent.DismissExitDialog -> hideExitDialog()
             is ReaderIntent.SetChaptersSheetVisible -> updateChaptersSheetVisibility(intent.visible)
             is ReaderIntent.SetAboutDialogVisible -> updateAboutDialogVisibility(intent.visible)
 
@@ -273,16 +274,20 @@ class ReaderViewModel @Inject constructor(
         )
     }
 
-    private fun updateExitDialogVisibility(visible: Boolean) {
-        _uiState.value = _uiState.value.copy(showExitDialog = visible)
+    private fun showExitDialog() {
+        _overlayState.value = _overlayState.value.copy(showExitDialog = true)
+    }
+
+    private fun hideExitDialog() {
+        _overlayState.value = _overlayState.value.copy(showExitDialog = false)
     }
 
     private fun updateChaptersSheetVisibility(visible: Boolean) {
-        _uiState.value = _uiState.value.copy(showChaptersSheet = visible)
+        _overlayState.value = _overlayState.value.copy(showChaptersSheet = visible)
     }
 
     private fun updateAboutDialogVisibility(visible: Boolean) {
-        _uiState.value = _uiState.value.copy(showAboutDialog = visible)
+        _overlayState.value = _overlayState.value.copy(showAboutDialog = visible)
     }
 
     private fun buildTocItems(
