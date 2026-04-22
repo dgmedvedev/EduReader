@@ -31,12 +31,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +47,7 @@ import com.example.edureader.R
 import com.example.edureader.presentation.common.asString
 import com.example.edureader.presentation.reader.contract.ReaderIntent
 import com.example.edureader.presentation.reader.contract.ReaderReadyState
+import com.example.edureader.presentation.reader.contract.ReaderUiState
 import com.example.edureader.presentation.reader.webview.ReaderContentWebView
 import kotlinx.coroutines.launch
 
@@ -57,14 +55,15 @@ import kotlinx.coroutines.launch
 @Composable
 fun ReaderContent(
     state: ReaderReadyState,
+    uiState: ReaderUiState,
     onPickBook: () -> Unit,
     onIntent: (ReaderIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showChapters by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
-    val latestState by rememberUpdatedState(state)
-    val latestOnIntent by rememberUpdatedState(onIntent)
+    LaunchedEffect(Unit) {
+        onIntent(ReaderIntent.RestoreCurrentScroll)
+    }
+
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val drawerMenuItems: List<DrawerMenuItemUi> = remember {
@@ -93,15 +92,19 @@ fun ReaderContent(
         ModalNavigationDrawer(
             modifier = Modifier.graphicsLayer { clip = true },
             drawerState = drawerState,
-            gesturesEnabled = true,
+            gesturesEnabled = drawerState.isOpen,
             drawerContent = {
                 ReaderDrawerSheet(
                     title = stringResource(R.string.reader_drawer_menu_title),
                     items = drawerMenuItems,
                     onItemClick = { action ->
                         when (action) {
-                            ReaderDrawerAction.About -> showAboutDialog = true
-                            ReaderDrawerAction.TableOfContents -> showChapters = true
+                            ReaderDrawerAction.About -> {
+                                onIntent(ReaderIntent.SetAboutDialogVisible(visible = true))
+                            }
+                            ReaderDrawerAction.TableOfContents -> {
+                                onIntent(ReaderIntent.SetChaptersSheetVisible(visible = true))
+                            }
                             ReaderDrawerAction.PickFile -> onPickBook()
                         }
                         scope.launch { drawerState.close() }
@@ -172,23 +175,27 @@ fun ReaderContent(
                             .padding(8.dp)
                             .clip(RoundedCornerShape(14.dp)),
                         chapterFileUrl = state.currentChapterFileUrl,
-                        pendingRestoreProgressionInChapter = latestState.pendingRestoreProgressionInChapter,
+                        pendingRestoreProgressionInChapter = state.pendingRestoreProgressionInChapter,
                         onReportScroll = { scrollY, progressionInChapter ->
-                            latestOnIntent(
+                            onIntent(
                                 ReaderIntent.ReportScroll(
                                     scrollY = scrollY,
                                     progressionInChapter = progressionInChapter
                                 )
                             )
                         },
-                        onRestoreApplied = { latestOnIntent(ReaderIntent.RestoreScrollApplied) },
-                        onPreviousChapter = { latestOnIntent(ReaderIntent.PreviousChapter) },
-                        onNextChapter = { latestOnIntent(ReaderIntent.NextChapter) }
+                        onRestoreApplied = { onIntent(ReaderIntent.RestoreScrollApplied) },
+                        onPreviousChapter = { onIntent(ReaderIntent.PreviousChapter) },
+                        onNextChapter = { onIntent(ReaderIntent.NextChapter) }
                     )
                 }
 
-                if (showChapters) {
-                    ModalBottomSheet(onDismissRequest = { showChapters = false }) {
+                if (uiState.showChaptersSheet) {
+                    ModalBottomSheet(
+                        onDismissRequest = {
+                            onIntent(ReaderIntent.SetChaptersSheetVisible(visible = false))
+                        }
+                    ) {
                         LazyColumn(modifier = Modifier.padding(12.dp)) {
                             itemsIndexed(state.tocItems) { _, item ->
                                 val tocTextStyle = MaterialTheme.typography.bodyLarge
@@ -210,7 +217,11 @@ fun ReaderContent(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            showChapters = false
+                                            onIntent(
+                                                ReaderIntent.SetChaptersSheetVisible(
+                                                    visible = false
+                                                )
+                                            )
                                             onIntent(
                                                 ReaderIntent.OpenTocItem(
                                                     spineIndex = item.spineIndex,
@@ -228,9 +239,11 @@ fun ReaderContent(
         }
     }
 
-    if (showAboutDialog) {
+    if (uiState.showAboutDialog) {
         AlertDialog(
-            onDismissRequest = { showAboutDialog = false },
+            onDismissRequest = {
+                onIntent(ReaderIntent.SetAboutDialogVisible(visible = false))
+            },
             title = { Text(stringResource(R.string.reader_about_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -254,7 +267,9 @@ fun ReaderContent(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showAboutDialog = false }) {
+                TextButton(
+                    onClick = { onIntent(ReaderIntent.SetAboutDialogVisible(visible = false)) }
+                ) {
                     Text(stringResource(R.string.reader_action_close))
                 }
             }
